@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+EE_WINDOW_ID=$( xdotool getactivewindow )
+
+EE_APP_NAME=$( xprop -id $EE_WINDOW_ID WM_CLASS | grep -oE '[^ ]+$' )
+EE_WINDOW_TITLE=$( xprop -id $EE_WINDOW_ID _NET_WM_NAME | cut -d" " -f3- )
+EE_TGEO=$( xwininfo -id $EE_WINDOW_ID |\
+    grep 'Absolute\|Relative\|Width:\|Height:' |\
+    grep -oE '[^ ]+$' )
+EE_GEO=($EE_TGEO)
+
+if [ "${EE_GEO[0]}" = "${EE_GEO[2]}" ]; then
+    EE_WINDOW_X="${EE_GEO[0]}"
+else
+    EE_WINDOW_X=$(expr "${EE_GEO[0]}" - "${EE_GEO[2]}")
+fi
+if [ "${EE_GEO[1]}" = "${EE_GEO[3]}" ]; then
+    EE_WINDOW_Y="${EE_GEO[1]}"
+else
+    EE_WINDOW_Y=$(expr "${EE_GEO[1]}" - "${EE_GEO[3]}")
+fi
+EE_WINDOW_WIDTH="${EE_GEO[4]}"
+EE_WINDOW_HEIGHT="${EE_GEO[5]}"
+
+{{call-emacs-client}}

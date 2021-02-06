@@ -1,0 +1,24 @@
+# melpazoid <https://github.com/riscy/melpazoid> build checks.
+
+name: melpazoid
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v1
+        with: { python-version: 3.6 }
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          sudo apt-get install emacs && emacs --version
+          git clone https://github.com/riscy/melpazoid.git ~/melpazoid
+          pip install ~/melpazoid
+      - name: Run
+        env:
+          RECIPE: (emacs-everywhere :repo "tecosaur/emacs-everywhere" :fetcher github :files ("emacs-everywhere.el" "scripts"))
+          EXIST_OK: false
+        run: echo $GITHUB_REF && make -C ~/melpazoid
