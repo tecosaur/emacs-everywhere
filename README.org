@@ -8,6 +8,8 @@
 
 A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emacs-anywhere][zachcurry/emacs-anywhere]].
 
+[[https://user-images.githubusercontent.com/20903656/107152385-814f2c00-69a2-11eb-978f-b3e78067b3f3.gif]]
+
 * Installation
 ** Straight
 
@@ -18,15 +20,7 @@ A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emac
 
 ** Doom
 
-#+begin_src emacs-lisp
-;; $DOOMDIR/packages.el
-(package! emacs-everywhere
-  :recipe (:host github :repo "tecosaur/emacs-everywhere"))
-
-;; $DOOMDIR/config.el
-(when (daemonp)
-  (use-package! emacs-everywhere))
-#+end_src
+(Soon to be) present as the =:app everywhere= module.
 
 ** Dependencies
 
@@ -34,7 +28,7 @@ On Linux, ensure you have the following dependencies: =xclip=, =xdotool=, =xprop
 
 * Usage
 
-Invoke the Emacs Everywhere executable.
+Invoke the Emacs Everywhere executable^{†}.
 I recommend doing this by binding a shortcut to:
 #+begin_src shell
 emacsclient --eval "(emacs-everywhere)"
@@ -54,3 +48,8 @@ non-nil).
 
 If you do /not/ wish to paste the buffer content into the original window, =C-c
 C-k= still copies the content to the clipboard, but never pastes.
+
+-----
+
+^{*†*} This requires the Emacs daemon to be running, but that's super easy.
+Just call =emacs --daemon= and you're sorted!

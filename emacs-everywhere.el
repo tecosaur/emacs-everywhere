@@ -353,7 +353,7 @@ return windowTitle"))
     (when (and (eq major-mode 'org-mode)
                (emacs-everywhere-markdown-p))
       (shell-command-on-region (point-min) (point-max)
-                               "pandoc -f markdown -t org" nil t)
+                               "pandoc -f markdown-auto_identifiers -t org" nil t)
       (deactivate-mark) (goto-char (point-max)))))
 (add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-insert-selection)
 
