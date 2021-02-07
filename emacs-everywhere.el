@@ -46,7 +46,15 @@ when applicable."
   '("Stack Exchange" "Stack Overflow" "Reddit" ; Sites
     "Pull Request" "Issue" "Comparing .*\\.\\.\\." ; Github
     "Discord")
-  "For use with `emacs-everywhere-major-mode-org-or-markdown'."
+  "For use with `emacs-everywhere-markdown-p'.
+Patterns which are matched against the window title."
+  :type '(rep string)
+  :group 'emacs-everywhere)
+
+(defcustom emacs-everywhere-markdown-apps
+  '("Discord")
+  "For use with `emacs-everywhere-markdown-p'.
+Patterns which are matched against the app name."
   :type '(rep string)
   :group 'emacs-everywhere)
 
@@ -55,16 +63,6 @@ when applicable."
 Formatted with the app name, and truncated window name."
   :type 'string
   :group 'emacs-everywhere)
-
-(defcustom emacs-everywhere-executable
-  (if (eq system-type 'darwin)
-      "~/.emacs-everywhere"
-    (concat (or (getenv "XDG_BIN_HOME") "~/.local/bin")
-            "/emacs-everywhere"))
-  "Path to place or update the emacs-everywhere executable."
-  :type 'string
-  :group 'emacs-everywhere)
-
 
 (defcustom emacs-everywhere-init-hooks nil
   "Hooks to be run before function `emacs-everywhere-mode'."
@@ -76,59 +74,68 @@ Formatted with the app name, and truncated window name."
   :type 'hook
   :group 'emacs-everywhere)
 
-;; Semi-internal variables
-
-(defvar emacs-everywhere-app-name nil
-  "Name of the App which the original window is a instance of.")
-(defvar emacs-everywhere-window-id nil
-  "System ID of the original window.")
-(defvar emacs-everywhere-window-name nil
-  "Name (title) of the original window.")
-(defvar emacs-everywhere-window-x nil
-  "Leftmost pixel of the original window.")
-(defvar emacs-everywhere-window-y nil
-  "Top pixel of the original window.")
-(defvar emacs-everywhere-window-width nil
-  "Width of the original window.")
-(defvar emacs-everywhere-window-height nil
-  "Height of the original window.")
-(defvar emacs-everywhere-mouse-x nil
-  "Mouse X-coordiate at invocation.")
-(defvar emacs-everywhere-mouse-y nil
-  "Mouse Y-coordiate at invocation.")
-
-;;; Executable vars
-
-(defcustom emacs-everywhere-emacsclient-cmd
-  "emacsclient --alternate-editor=\"\" --create-frame --no-wait"
-  "Emacs client command to run, inserted into emacs-everywhere executable.
-The emacs-everywhere call itself is appended to this string."
-  :type 'string
+(defcustom emacs-everywhere-frame-parameters
+  `((name . "emacs-everywhere")
+    (width . 80)
+    (height . 12))
+  "Parameters `make-frame' recognises to apply to the emacs-everywhere frame."
+  :type 'list
   :group 'emacs-everywhere)
 
-(defvar emacs-everywhere--dir (file-name-directory load-file-name))
+;; Semi-internal variables
+
+(defvar-local emacs-everywhere-app-name nil
+  "Name of the App which the original window is a instance of.")
+(defvar-local emacs-everywhere-window-id nil
+  "System ID of the original window.")
+(defvar-local emacs-everywhere-window-title nil
+  "Name (title) of the original window.")
+(defvar-local emacs-everywhere-window-x nil
+  "Leftmost pixel of the original window.")
+(defvar-local emacs-everywhere-window-y nil
+  "Top pixel of the original window.")
+(defvar-local emacs-everywhere-window-width nil
+  "Width of the original window.")
+(defvar-local emacs-everywhere-window-height nil
+  "Height of the original window.")
+(defvar-local emacs-everywhere-mouse-x nil
+  "Mouse X-coordiate at invocation.")
+(defvar-local emacs-everywhere-mouse-y nil
+  "Mouse Y-coordiate at invocation.")
 
 ;;; Primary functionality
 
 ;;;###autoload
-(defun emacs-everywhere-initialise (app-name window-id window-name window-x window-y window-width window-height)
+(defun emacs-everywhere ()
+  "Lanuch the emacs-everywhere frame from emacsclient."
+  (call-process "emacsclient" nil 0 nil
+                "-c" "-F" (prin1-to-string emacs-everywhere-frame-parameters)
+                "--eval" (prin1-to-string
+                          `(emacs-everywhere-initialise
+                            ,@(emacs-everywhere-window-info)))))
+
+(defun emacs-everywhere-initialise (app-name window-id window-title window-x window-y window-width window-height)
   "Entry point for the executable.
-Provides: APP-NAME, WINDOW-ID, WINDOW-NAME, WINDOW-X, WINDOW-Y,
+Provides: APP-NAME, WINDOW-ID, WINDOW-TITLE, WINDOW-X, WINDOW-Y,
           WINDOW-WIDTH, WINDOW-HEIGHT."
   (switch-to-buffer (generate-new-buffer "*Emacs Everywhere*"))
+  (setq window-title
+        (replace-regexp-in-string
+         (format " ?-[A-Za-z0-9 ]*%s"
+                 (regexp-quote app-name))
+         ""
+         (replace-regexp-in-string "[^[:ascii:]]+" "-" window-title)))
   (when emacs-everywhere-major-mode-function
     ;; Only set vars that may reasonably be used,
     ;; as they are (likely) about to be cleared.
     (setq-local emacs-everywhere-app-name app-name
                 emacs-everywhere-window-id window-id
-                emacs-everywhere-window-name window-name)
+                emacs-everywhere-window-title window-title)
     (funcall emacs-everywhere-major-mode-function))
-  (let* ((mousepos (split-string (shell-command-to-string "xdotool getmouselocation | sed -E \"s/ screen:0 window:[^ ]*|x:|y://g\"")))
-         (mouse-x (string-to-number (nth 0 mousepos)))
-         (mouse-y (string-to-number (nth 1 mousepos))))
+  (cl-destructuring-bind (mouse-x . mouse-y) (mouse-absolute-pixel-position)
     (setq-local emacs-everywhere-app-name app-name
                 emacs-everywhere-window-id window-id
-                emacs-everywhere-window-name window-name
+                emacs-everywhere-window-title window-title
                 emacs-everywhere-window-x window-x
                 emacs-everywhere-window-y window-y
                 emacs-everywhere-window-width window-width
@@ -194,8 +201,11 @@ Never paste content when ABORT is non-nil."
       (write-file clip-file)
       (call-process "xclip" nil nil nil "-selection" "clipboard" clip-file)))
   (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
-  (call-process "xdotool" nil nil nil
-                "windowactivate" "--sync" (number-to-string emacs-everywhere-window-id))
+  (if (eq system-type 'darwin)
+      (call-process "osascript" nil nil nil
+                    (format "tell application \"%s\" to activate" emacs-everywhere-app-name))
+    (call-process "xdotool" nil nil nil
+                  "windowactivate" "--sync" (number-to-string emacs-everywhere-window-id)))
   (when (and emacs-everywhere-paste-p (not abort))
     (if (eq system-type 'darwin)
         (call-process "osascript" nil nil nil
@@ -205,39 +215,109 @@ Never paste content when ABORT is non-nil."
   (kill-buffer (current-buffer))
   (delete-frame))
 
-;;; Setup
+;;; Window info
 
-(defun emacs-everywhere-install ()
-  "Install or update the emacs-everywhere script."
-  (interactive)
-  (emacs-everywhere-check-dependancies)
+(defun emacs-everywhere-window-info ()
+  "Return information on the active window."
+  (pcase system-type
+    (`darwin (emacs-everywhere-window-info-osx))
+    (_ (emacs-everywhere-window-info-linux))))
+
+(defun emacs-everywhere-call (command &rest args)
+  "Execute COMMAND with ARGS synchronously."
   (with-temp-buffer
-    (insert-file-contents
-     (expand-file-name
-      (if (eq system-type 'darwin) "scripts/osx" "scripts/linux")
-      emacs-everywhere--dir))
-    (search-forward "{{call-emacs-client}}")
-    (replace-match (concat emacs-everywhere-emacsclient-cmd
-                           " --eval \"(emacs-everywhere-initialise \
-$EE_APP_NAME $EE_WINDOW_ID $EE_WINDOW_TITLE \
-$EE_WINDOW_X $EE_WINDOW_Y \
-$EE_WINDOW_WIDTH $EE_WINDOW_HEIGHT)\""))
-    (write-file emacs-everywhere-executable)
-    (chmod emacs-everywhere-executable 488)
-    (message "Emacs everywhere script installed to %s"
-             (propertize emacs-everywhere-executable
-                         'face 'font-lock-type-face))))
+    (apply #'call-process command nil t nil (remq nil args))
+    (string-trim (buffer-string))))
 
-(defun emacs-everywhere-check-dependancies ()
-  "Check that all required system executables are present."
-  (let (unmet-deps)
-    (dolist (dep (if (eq system-type 'darwin)
-                     '("emacsclient")
-                   '("emacsclient" "xclip" "xdotool" "xprop" "xwininfo")))
-      (unless (executable-find dep)
-        (push dep unmet-deps)))
-    (when unmet-deps
-      (user-error "Error. Unmet dependancies: %s" (string-join unmet-deps ", ")))))
+(defun emacs-everywhere-window-info-linux ()
+  "Return information on the active window, on linux."
+  (let ((window-id (emacs-everywhere-call "xdotool" "getactivewindow")))
+    (let ((app-name (car (split-string-and-unquote
+                          (string-trim-left
+                           (emacs-everywhere-call "xprop" "-id" window-id "WM_CLASS")
+                           "[^ ]+ = \"[^\"]+\", "))))
+          (window-title (car (split-string-and-unquote
+                              (string-trim-left
+                               (emacs-everywhere-call "xprop" "-id" window-id "_NET_WM_NAME")
+                               "[^ ]+ = "))))
+          (window-geometry (let ((info (mapcar (lambda (line)
+                                                 (split-string line ":" nil "[ \t]+"))
+                                               (split-string
+                                                (emacs-everywhere-call "xwininfo" "-id" window-id) "\n"))))
+                             (mapcar #'string-to-number
+                                     (list (cadr (assoc "Absolute upper-left X" info))
+                                           (cadr (assoc "Absolute upper-left Y" info))
+                                           (cadr (assoc "Relative upper-left X" info))
+                                           (cadr (assoc "Relative upper-left Y" info))
+                                           (cadr (assoc "Width" info))
+                                           (cadr (assoc "Height" info)))))))
+      (list app-name
+            (string-to-number window-id)
+            window-title
+            (if (= (nth 0 window-geometry) (nth 2 window-geometry))
+                (nth 0 window-geometry)
+              (- (nth 0 window-geometry) (nth 2 window-geometry)))
+            (if (= (nth 1 window-geometry) (nth 3 window-geometry))
+                (nth 1 window-geometry)
+              (- (nth 1 window-geometry) (nth 3 window-geometry)))
+            (nth 4 window-geometry)
+            (nth 5 window-geometry)))))
+
+
+(defun emacs-everywhere-window-info-osx ()
+  "Return information on the active window, on osx."
+  (emacs-everywhere-ensure-oscascript-compiled)
+  (let ((app-name (emacs-everywhere-call
+                   "osascript" "app-name"))
+        (window-title (emacs-everywhere-call
+                       "osascript" "window-title"))
+        (window-geometry (mapcar #'string-to-number
+                                 (split-string
+                                  (emacs-everywhere-call
+                                   "osascript" "window-geometry") ", "))))
+    (list app-name
+          nil
+          window-title
+          (nth 0 window-geometry)
+          (nth 1 window-geometry)
+          (nth 2 window-geometry)
+          (nth 3 window-geometry))))
+
+(defvar emacs-everywhere--dir (file-name-directory load-file-name))
+
+(defun emacs-everywhere-ensure-oscascript-compiled ()
+  "Ensure that compiled oscascript files are present."
+  (unless (file-exists-p (expand-file-name "app-name" emacs-everywhere--dir))
+    (let ((default-directory emacs-everywhere--dir)
+          (app-name
+           "tell application \"System Events\"
+    set frontAppName to name of first application process whose frontmost is true
+end tell
+return frontAppName")
+          (window-geometry
+           "tell application \"System Events\"
+     set frontWindow to front window of (first application process whose frontmost is true)
+     set windowPosition to (get position of frontWindow)
+     set windowSize to (get size of frontWindow)
+end tell
+return windowPosition & windowSize")
+          (window-title
+           "set windowTitle to \"\"
+tell application \"System Events\"
+     set frontAppProcess to first application process whose frontmost is true
+end tell
+tell frontAppProcess
+    if count of windows > 0 then
+        set windowTitle to name of front window
+    end if
+end tell
+return windowTitle"))
+      (dolist (script `(("app-name" . ,app-name)
+                        ("window-geometry" . ,window-geometry)
+                        ("window-title" . ,window-title)))
+        (write-region (cdr script) nil (concat (car script) ".applescript"))
+        (shell-command (format "osacompile -r scpt:128 -t osas -o %s %s"
+                               (car script) (concat (car script) ".applescript")))))))
 
 ;;; Secondary functionality
 
@@ -246,12 +326,8 @@ $EE_WINDOW_WIDTH $EE_WINDOW_HEIGHT)\""))
   (set-frame-name
    (format emacs-everywhere-frame-name-format
            emacs-everywhere-app-name
-           (truncate-string-to-width
-            (string-trim
-             (string-trim-right emacs-everywhere-window-name
-                                (format "-[A-Za-z0-9 ]*%s" emacs-everywhere-app-name))
-             "[\s-]+" "[\s-]+")
-            45 nil nil "…"))))
+           (truncate-string-to-width emacs-everywhere-window-title
+                                     45 nil nil "…"))))
 (add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-set-frame-name)
 
 (defun emacs-everywhere-remove-trailing-whitespace ()
@@ -262,20 +338,19 @@ $EE_WINDOW_WIDTH $EE_WINDOW_HEIGHT)\""))
 (add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-remove-trailing-whitespace)
 (add-hook 'emacs-everywhere-final-hooks #'emacs-everywhere-remove-trailing-whitespace)
 
-(defun emacs-everywhere-set-frame-size-position ()
+(defun emacs-everywhere-set-frame-position ()
   "Set the size and position of the emacs-everywhere frame."
-  (set-frame-size (selected-frame) 80 12)
   (set-frame-position (selected-frame)
                       (- emacs-everywhere-mouse-x 100)
                       (- emacs-everywhere-mouse-y 50)))
-(add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-set-frame-size-position)
+(add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-set-frame-position)
 
 (defun emacs-everywhere-insert-selection ()
   "Insert the last text selection into the buffer."
   (when-let ((selection (gui-get-selection 'PRIMARY)))
     (gui-backend-set-selection 'PRIMARY "")
     (insert selection)
-    (when (and (eq emacs-everywhere-major-mode-function #'org-mode)
+    (when (and (eq major-mode 'org-mode)
                (emacs-everywhere-markdown-p))
       (shell-command-on-region (point-min) (point-max)
                                "pandoc -f markdown -t org" nil t)
@@ -285,17 +360,19 @@ $EE_WINDOW_WIDTH $EE_WINDOW_HEIGHT)\""))
 (when (featurep 'evil)
   (add-hook 'emacs-everywhere-init-hooks #'evil-insert-state))
 
-(when (featurep 'spell-fu)
-  (add-hook 'emacs-everywhere-init-hooks #'spell-fu-buffer))
-
-(when (featurep 'flyspell)
-  (add-hook 'emacs-everywhere-init-hooks #'flyspell-buffer))
+(if (featurep 'spell-fu)
+    (add-hook 'emacs-everywhere-init-hooks #'spell-fu-buffer)
+  (when (featurep 'flyspell)
+    (add-hook 'emacs-everywhere-init-hooks #'flyspell-buffer)))
 
 (defun emacs-everywhere-markdown-p ()
   "Return t if the original window is recognised as markdown-flavoured."
-  (cl-some (lambda (pattern)
-             (string-match-p pattern emacs-everywhere-window-name))
-           emacs-everywhere-markdown-windows))
+  (or (cl-some (lambda (pattern)
+                 (string-match-p pattern emacs-everywhere-window-title))
+               emacs-everywhere-markdown-windows)
+      (cl-some (lambda (pattern)
+                 (string-match-p pattern emacs-everywhere-app-name))
+               emacs-everywhere-markdown-apps)))
 
 (defun emacs-everywhere-major-mode-org-or-markdown ()
   "Use markdow-mode, when window is recognised as markdown-flavoured.
@@ -306,7 +383,7 @@ Otherwise use `org-mode'."
 
 (defun emacs-everywhere-return-converted-org-to-gfm ()
   "When appropriate, convert org buffer to markdown."
-  (when (and (eq emacs-everywhere-major-mode-function #'org-mode)
+  (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p))
     (goto-char (point-min))
     (insert "#+property: header-args :exports both\n#+options: toc:nil\n")
@@ -315,8 +392,7 @@ Otherwise use `org-mode'."
       (delete-window)
       (erase-buffer)
       (insert-buffer-substring export-buffer)
-      (kill-buffer export-buffer))
-    (message "%s" (current-buffer))))
+      (kill-buffer export-buffer))))
 (add-hook 'emacs-everywhere-final-hooks #'emacs-everywhere-return-converted-org-to-gfm)
 
 (provide 'emacs-everywhere)

@@ -19,6 +19,6 @@ jobs:
           pip install ~/melpazoid
       - name: Run
         env:
-          RECIPE: (emacs-everywhere :repo "tecosaur/emacs-everywhere" :fetcher github :files ("emacs-everywhere.el" "scripts"))
+          RECIPE: (emacs-everywhere :repo "tecosaur/emacs-everywhere" :fetcher github)
           EXIST_OK: false
         run: echo $GITHUB_REF && make -C ~/melpazoid

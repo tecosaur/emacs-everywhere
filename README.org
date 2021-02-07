@@ -13,9 +13,7 @@ A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emac
 
 #+begin_src emacs-lisp
 (use-package emacs-everywhere
-  :straight (:host github
-             :repo "tecosaur/emacs-everywhere"
-             :files ("emacs-everywhere.el" "scripts")))
+  :straight (:host github :repo "tecosaur/emacs-everywhere"))
 #+end_src
 
 ** Doom
@@ -23,9 +21,7 @@ A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emac
 #+begin_src emacs-lisp
 ;; $DOOMDIR/packages.el
 (package! emacs-everywhere
-  :recipe (:host github
-           :repo "tecosaur/emacs-everywhere"
-           :files ("emacs-everywhere.el" "scripts")))
+  :recipe (:host github :repo "tecosaur/emacs-everywhere"))
 
 ;; $DOOMDIR/config.el
 (when (daemonp)
@@ -36,18 +32,16 @@ A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emac
 
 On Linux, ensure you have the following dependencies: =xclip=, =xdotool=, =xprop=, and =xwininfo=.
 
-** Setup executable
-
-After installing, in a new Emacs session run =M-x emacs-everywhere-install=. It will tell you
-where the executable has been placed.
-Have a keybinding call the executable, and that's all the setup required 🙂.
-
 * Usage
 
-Invoke the Emacs Everywhere executable. It will remember which window you have
-focused.
+Invoke the Emacs Everywhere executable.
+I recommend doing this by binding a shortcut to:
+#+begin_src shell
+emacsclient --eval "(emacs-everywhere)"
+#+end_src
 
 A new Emacs frame will appear, within which you can type away to your heart's content.
+It will remember which window you have focused.
 
 By default, ~emacs-everywhere-insert-selection~ is a hook in
 ~emacs-everywhere-init-hooks~, and will insert the last text selection into your
