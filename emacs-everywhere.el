@@ -203,13 +203,13 @@ Never paste content when ABORT is non-nil."
   (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
   (if (eq system-type 'darwin)
       (call-process "osascript" nil nil nil
-                    (format "tell application \"%s\" to activate" emacs-everywhere-app-name))
+                    "-e" (format "tell application \"%s\" to activate" emacs-everywhere-app-name))
     (call-process "xdotool" nil nil nil
                   "windowactivate" "--sync" (number-to-string emacs-everywhere-window-id)))
   (when (and emacs-everywhere-paste-p (not abort))
     (if (eq system-type 'darwin)
         (call-process "osascript" nil nil nil
-                      "-e" "tell application \"System Events\" to keystroke \"v\" using command down")
+                      "-e" "tell application \"System Events\" to keystroke (the clipboard as text)")
       (call-process "xdotool" nil nil nil
                     "key" "--clearmodifiers" "Shift+Insert")))
   (kill-buffer (current-buffer))
