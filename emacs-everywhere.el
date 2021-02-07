@@ -267,27 +267,31 @@ Never paste content when ABORT is non-nil."
 (defun emacs-everywhere-window-info-osx ()
   "Return information on the active window, on osx."
   (emacs-everywhere-ensure-oscascript-compiled)
-  (let ((app-name (emacs-everywhere-call
-                   "osascript" "app-name"))
-        (window-title (emacs-everywhere-call
-                       "osascript" "window-title"))
-        (window-geometry (mapcar #'string-to-number
-                                 (split-string
-                                  (emacs-everywhere-call
-                                   "osascript" "window-geometry") ", "))))
-    (list app-name
-          nil
-          window-title
-          (nth 0 window-geometry)
-          (nth 1 window-geometry)
-          (nth 2 window-geometry)
-          (nth 3 window-geometry))))
+  (let ((default-directory emacs-everywhere--dir))
+    (let ((app-name (emacs-everywhere-call
+                     "osascript" "app-name"))
+          (window-title (emacs-everywhere-call
+                         "osascript" "window-title"))
+          (window-geometry (mapcar #'string-to-number
+                                   (split-string
+                                    (emacs-everywhere-call
+                                     "osascript" "window-geometry") ", "))))
+      (list app-name
+            nil
+            window-title
+            (nth 0 window-geometry)
+            (nth 1 window-geometry)
+            (nth 2 window-geometry)
+            (nth 3 window-geometry)))))
 
 (defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
-(defun emacs-everywhere-ensure-oscascript-compiled ()
+(defun emacs-everywhere-ensure-oscascript-compiled (&optional force)
   "Ensure that compiled oscascript files are present."
-  (unless (file-exists-p (expand-file-name "app-name" emacs-everywhere--dir))
+  (unless (and (file-exists-p "app-name")
+               (file-exists-p "window-geometry")
+               (file-exists-p "window-title")
+               (not force))
     (let ((default-directory emacs-everywhere--dir)
           (app-name
            "tell application \"System Events\"
