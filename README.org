@@ -20,7 +20,7 @@ A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emac
 
 ** Doom
 
-(Soon to be) present as the =:app everywhere= module.
+Available with the =:app everywhere= module (and with a nice modeline).
 
 ** Dependencies
 
