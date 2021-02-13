@@ -263,6 +263,7 @@ Never paste content when ABORT is non-nil."
             (nth 4 window-geometry)
             (nth 5 window-geometry)))))
 
+(defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
 (defun emacs-everywhere-window-info-osx ()
   "Return information on the active window, on osx."
@@ -283,8 +284,6 @@ Never paste content when ABORT is non-nil."
             (nth 1 window-geometry)
             (nth 2 window-geometry)
             (nth 3 window-geometry)))))
-
-(defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
 (defun emacs-everywhere-ensure-oscascript-compiled (&optional force)
   "Ensure that compiled oscascript files are present."
