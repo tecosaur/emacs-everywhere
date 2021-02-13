@@ -32,14 +32,18 @@
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-major-mode-function
-  #'emacs-everywhere-major-mode-org-or-markdown
+  (cond
+   ((executable-find "pandoc") #'org-mode)
+   ((fboundp 'markdown-mode) #'emacs-everywhere-major-mode-org-or-markdown)
+   (t #'text-mode))
   "Function which sets the major mode for the Emacs Everywhere buffer.
 
 When set to `org-mode', pandoc is used to convert from markdown to Org
 when applicable."
   :type 'function
-  :options '(emacs-everywhere-major-mode-org-or-markdown
-             org-mode)
+  :options '(org-mode
+             emacs-everywhere-major-mode-org-or-markdown
+             text-mode)
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-markdown-windows
@@ -370,7 +374,8 @@ return windowTitle"))
       (gui-backend-set-selection 'PRIMARY "")
       (insert selection)))
   (when (and (eq major-mode 'org-mode)
-             (emacs-everywhere-markdown-p))
+             (emacs-everywhere-markdown-p)
+             (executable-find "pandoc"))
     (shell-command-on-region (point-min) (point-max)
                              "pandoc -f markdown-auto_identifiers -t org" nil t)
     (deactivate-mark) (goto-char (point-max))))
