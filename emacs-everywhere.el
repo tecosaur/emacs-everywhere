@@ -103,6 +103,15 @@ Formatted with the app name, and truncated window name."
 (defvar-local emacs-everywhere-mouse-y nil
   "Mouse Y-coordiate at invocation.")
 
+;; Make the byte-compiler happier
+
+(declare-function org-in-src-block-p "org")
+(declare-function org-ctrl-c-ctrl-c "org")
+(declare-function org-export-to-buffer "ox")
+(declare-function evil-insert-state "evil-states")
+(declare-function spell-fu-buffer "spell-fu")
+(declare-function markdown-mode "markdown-mode")
+
 ;;; Primary functionality
 
 ;;;###autoload
@@ -286,7 +295,8 @@ Never paste content when ABORT is non-nil."
             (nth 3 window-geometry)))))
 
 (defun emacs-everywhere-ensure-oscascript-compiled (&optional force)
-  "Ensure that compiled oscascript files are present."
+  "Ensure that compiled oscascript files are present.
+Will always compile when FORCE is non-nil."
   (unless (and (file-exists-p "app-name")
                (file-exists-p "window-geometry")
                (file-exists-p "window-title")
