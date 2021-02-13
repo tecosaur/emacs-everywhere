@@ -351,14 +351,20 @@ return windowTitle"))
 
 (defun emacs-everywhere-insert-selection ()
   "Insert the last text selection into the buffer."
-  (when-let ((selection (gui-get-selection 'PRIMARY)))
-    (gui-backend-set-selection 'PRIMARY "")
-    (insert selection)
-    (when (and (eq major-mode 'org-mode)
-               (emacs-everywhere-markdown-p))
-      (shell-command-on-region (point-min) (point-max)
-                               "pandoc -f markdown-auto_identifiers -t org" nil t)
-      (deactivate-mark) (goto-char (point-max)))))
+  (if (eq system-type 'darwin)
+      (progn
+        (call-process "osascript" nil nil nil
+                      "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
+        (sit-for 0.01) ; lets clipboard info propagate
+        (yank))
+    (when-let ((selection (gui-get-selection 'PRIMARY)))
+      (gui-backend-set-selection 'PRIMARY "")
+      (insert selection)))
+  (when (and (eq major-mode 'org-mode)
+             (emacs-everywhere-markdown-p))
+    (shell-command-on-region (point-min) (point-max)
+                             "pandoc -f markdown-auto_identifiers -t org" nil t)
+    (deactivate-mark) (goto-char (point-max))))
 (add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-insert-selection)
 
 (when (featurep 'evil)
