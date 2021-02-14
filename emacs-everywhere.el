@@ -9,7 +9,7 @@
 ;; Version: 0.0.1
 ;; Keywords: conenience, frames
 ;; Homepage: https://github.com/tec/emacs-everywhere
-;; Package-Requires: ((emacs "26.3"))
+;; Package-Requires: ((emacs "26.3") (cl-lib "0.5"))
 
 ;;; License:
 
@@ -21,6 +21,8 @@
 ;;  System-wide popup Emacs windows for quick edits
 
 ;;; Code:
+
+(require 'cl-lib)
 
 (defgroup emacs-everywhere ()
   "Customise group for Emacs-everywhere."
