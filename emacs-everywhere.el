@@ -68,12 +68,19 @@ Formatted with the app name, and truncated window name."
   :type 'string
   :group 'emacs-everywhere)
 
-(defcustom emacs-everywhere-init-hooks nil
+(defcustom emacs-everywhere-init-hooks
+  '(emacs-everywhere-set-frame-name
+    emacs-everywhere-remove-trailing-whitespace
+    emacs-everywhere-set-frame-position
+    emacs-everywhere-insert-selection
+    emacs-everywhere-init-spell-check)
   "Hooks to be run before function `emacs-everywhere-mode'."
   :type 'hook
   :group 'emacs-everywhere)
 
-(defcustom emacs-everywhere-final-hooks nil
+(defcustom emacs-everywhere-final-hooks
+  '(emacs-everywhere-remove-trailing-whitespace
+    emacs-everywhere-return-converted-org-to-gfm)
   "Hooks to be run just before content is copied."
   :type 'hook
   :group 'emacs-everywhere)
@@ -345,22 +352,18 @@ return windowTitle"))
            emacs-everywhere-app-name
            (truncate-string-to-width emacs-everywhere-window-title
                                      45 nil nil "…"))))
-(add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-set-frame-name)
 
 (defun emacs-everywhere-remove-trailing-whitespace ()
   "Move point to the end of the buffer, and remove all trailing whitespace."
   (goto-char (max-char))
   (delete-trailing-whitespace)
   (delete-char (- (skip-chars-backward "\n"))))
-(add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-remove-trailing-whitespace)
-(add-hook 'emacs-everywhere-final-hooks #'emacs-everywhere-remove-trailing-whitespace)
 
 (defun emacs-everywhere-set-frame-position ()
   "Set the size and position of the emacs-everywhere frame."
   (set-frame-position (selected-frame)
                       (- emacs-everywhere-mouse-x 100)
                       (- emacs-everywhere-mouse-y 50)))
-(add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-set-frame-position)
 
 (defun emacs-everywhere-insert-selection ()
   "Insert the last text selection into the buffer."
@@ -378,16 +381,13 @@ return windowTitle"))
              (executable-find "pandoc"))
     (shell-command-on-region (point-min) (point-max)
                              "pandoc -f markdown-auto_identifiers -t org" nil t)
-    (deactivate-mark) (goto-char (point-max))))
-(add-hook 'emacs-everywhere-init-hooks #'emacs-everywhere-insert-selection)
+    (deactivate-mark) (goto-char (point-max)))
+  (cond ((bound-and-true-p evil-local-mode) (evil-insert-state))))
 
-(when (featurep 'evil)
-  (add-hook 'emacs-everywhere-init-hooks #'evil-insert-state))
-
-(if (featurep 'spell-fu)
-    (add-hook 'emacs-everywhere-init-hooks #'spell-fu-buffer)
-  (when (featurep 'flyspell)
-    (add-hook 'emacs-everywhere-init-hooks #'flyspell-buffer)))
+(defun emacs-everywhere-init-spell-check ()
+  "Run a spell check function on the buffer, using a relevant enabled mode."
+  (cond ((bound-and-true-p spell-fu-mode) (spell-fu-buffer))
+        ((bound-and-true-p flyspell-mode) (flyspell-buffer))))
 
 (defun emacs-everywhere-markdown-p ()
   "Return t if the original window is recognised as markdown-flavoured."
@@ -417,7 +417,6 @@ Otherwise use `org-mode'."
       (erase-buffer)
       (insert-buffer-substring export-buffer)
       (kill-buffer export-buffer))))
-(add-hook 'emacs-everywhere-final-hooks #'emacs-everywhere-return-converted-org-to-gfm)
 
 (provide 'emacs-everywhere)
 ;;; emacs-everywhere.el ends here
