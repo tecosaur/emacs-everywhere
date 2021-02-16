@@ -185,7 +185,7 @@ Never paste content when ABORT is non-nil."
           (call-process "osascript" nil nil nil
                         "-e" "tell application \"System Events\" to keystroke (the clipboard as text)")
         (call-process "xdotool" nil nil nil
-                      "key" "--window" (number-to-string window-id) "--clearmodifiers" "Shift+Insert"))))
+                      "key" "--clearmodifiers" "Shift+Insert"))))
   (kill-buffer (current-buffer))
   (delete-frame))
 
