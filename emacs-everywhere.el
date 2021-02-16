@@ -344,7 +344,7 @@ return windowTitle"))
                       "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
         (sit-for 0.01) ; lets clipboard info propagate
         (yank))
-    (when-let ((selection (gui-get-selection 'PRIMARY)))
+    (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
       (gui-backend-set-selection 'PRIMARY "")
       (insert selection)))
   (when (and (eq major-mode 'org-mode)
