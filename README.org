@@ -2,7 +2,8 @@
 #+author: TEC
 #+date:  2021-02-06
 
-#+html: <p><img src="https://img.shields.io/badge/Emacs-26.3-blueviolet.svg?style=flat-square&logo=GNU%20Emacs&logoColor=white">
+#+html: <p><img src="https://img.shields.io/badge/Emacs-26.3+-blueviolet.svg?style=flat-square&logo=GNU%20Emacs&logoColor=white">
+#+html: <a href="https://melpa.org/#/emacs-everywhere"><img src="https://melpa.org/packages/emacs-everywhere-badge.svg"></a>
 #+html: <img src="https://img.shields.io/badge/-Linux-fcc624?logo=linux&style=flat-square&logoColor=black">
 #+html: <img src="https://img.shields.io/badge/-MacOS-lightgrey?logo=apple&style=flat-square&logoColor=black"></p>
 
@@ -11,12 +12,8 @@ A re-implementation of the fantastic idea in [[https://github.com/zachcurry/emac
 [[https://user-images.githubusercontent.com/20903656/107152385-814f2c00-69a2-11eb-978f-b3e78067b3f3.gif]]
 
 * Installation
-** Straight
 
-#+begin_src emacs-lisp
-(use-package emacs-everywhere
-  :straight (:host github :repo "tecosaur/emacs-everywhere"))
-#+end_src
+Just install from [[https://melpa.org/][MELPA]], and you're ready to go.
 
 ** Doom
 
@@ -24,7 +21,7 @@ Available with the =:app everywhere= module (and with a nice modeline).
 
 ** Dependencies
 
-On Linux, ensure you have the following dependencies: =xclip=, =xdotool=, =xprop=, and =xwininfo=.
+On Linux, ensure you have the following dependencies satisfied: =xclip=, =xdotool=, =xprop=, and =xwininfo=.
 
 * Usage
 

@@ -8,7 +8,7 @@
 ;; Modified: February 06, 2021
 ;; Version: 0.0.1
 ;; Keywords: conenience, frames
-;; Homepage: https://github.com/tec/emacs-everywhere
+;; Homepage: https://github.com/tecosaur/emacs-everywhere
 ;; Package-Requires: ((emacs "26.3") (cl-lib "0.5"))
 
 ;;; License:
