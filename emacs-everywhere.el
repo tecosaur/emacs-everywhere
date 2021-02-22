@@ -378,12 +378,22 @@ Otherwise use `org-mode'."
       (markdown-mode)
     (org-mode)))
 
+(defcustom emacs-everywhere-org-export-options
+ "#+property: header-args :exports both
+#+options: toc:nil\n"
+ "A string inserted at the top of the Org buffer prior to export.
+This is with the purpose of setting #+property and #+options parameters.
+
+Should end in a newline to avoid interfering with the buffer content."
+ :type 'string
+ :group 'emacs-everywhere)
+
 (defun emacs-everywhere-return-converted-org-to-gfm ()
   "When appropriate, convert org buffer to markdown."
   (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p))
     (goto-char (point-min))
-    (insert "#+property: header-args :exports both\n#+options: toc:nil\n")
+    (insert emacs-everywhere-org-export-options)
     (let ((export-buffer (generate-new-buffer "*Emacs Everywhere Export*")))
       (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) export-buffer)
       (delete-window)
