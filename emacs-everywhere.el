@@ -84,12 +84,23 @@ Formatted with the app name, and truncated window name."
   :type 'list
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-file-patterns
+  (let ((default-directory temporary-file-directory))
+    (list (concat "^" (regexp-quote (expand-file-name "emacs-everywhere-")))
+          ;; For qutebrowser 'editor.command' support
+          (concat "^" (regexp-quote (expand-file-name "qutebrowser-editor-")))))
+  "A list of file regexps to activate `emacs-everywhere-mode' for."
+  :type '(repeat regexp)
+  :group 'emacs-everywhere)
+
 ;; Semi-internal variables
 
 (defvar-local emacs-everywhere-current-app nil
   "The current `emacs-everywhere-app'")
 ;; Prevents buffer-local variable from being unset by major mode changes
 (put 'emacs-everywhere-current-app 'permanent-local t)
+
+(defvar-local emacs-everywhere--contents nil)
 
 ;; Make the byte-compiler happier
 
@@ -103,24 +114,41 @@ Formatted with the app name, and truncated window name."
 ;;; Primary functionality
 
 ;;;###autoload
-(defun emacs-everywhere ()
+(defun emacs-everywhere (&optional file line column)
   "Lanuch the emacs-everywhere frame from emacsclient."
-  (call-process "emacsclient" nil 0 nil
-                "-c" "-F" (prin1-to-string emacs-everywhere-frame-parameters)
-                "--eval" (prin1-to-string
-                          `(emacs-everywhere-initialise
-                            ,(emacs-everywhere-app-info)))))
+  (apply #'call-process "emacsclient" nil 0 nil
+         (delq
+          nil (list
+               "-c" "-F"
+               (prin1-to-string
+                (cons (cons 'emacs-everywhere-app (emacs-everywhere-app-info))
+                      emacs-everywhere-frame-parameters))
+               (cond ((and line column) (format "+%d:%d" line column))
+                     (line              (format "+%d" line)))
+               (or file (make-temp-file "emacs-everywhere-"))))))
 
-(defun emacs-everywhere-initialise (&optional app)
+(defun emacs-everywhere-file-p (file)
+  "Return non-nil if FILE should be handled by emacs-everywhere.
+This matches FILE against `emacs-everywhere-file-patterns'."
+  (cl-some (lambda (pattern) (string-match-p pattern file))
+           emacs-everywhere-file-patterns))
+
+;;;###autoload
+(defun emacs-everywhere-initialise ()
   "Entry point for the executable.
 APP is an `emacs-everywhere-app' struct."
-  (switch-to-buffer (generate-new-buffer "*Emacs Everywhere*"))
-  (let ((window (or app (emacs-everywhere-app-info))))
-    (setq-local emacs-everywhere-current-app window)
-    (with-demoted-errors "Emacs Everywhere: error running init hooks, %s"
-      (run-hooks 'emacs-everywhere-init-hooks))
-    (emacs-everywhere-mode 1)
-    (select-frame-set-input-focus (selected-frame))))
+  (when (emacs-everywhere-file-p (buffer-file-name (buffer-base-buffer)))
+    (let ((app (or (frame-parameter nil 'emacs-everywhere-app)
+                   (emacs-everywhere-app-info))))
+      (setq-local emacs-everywhere-current-app app)
+      (with-demoted-errors "Emacs Everywhere: error running init hooks, %s"
+        (run-hooks 'emacs-everywhere-init-hooks))
+      (emacs-everywhere-mode 1)
+      (setq emacs-everywhere--contents (buffer-string)))))
+
+;;;###autoload
+(add-hook 'server-visit-hook #'emacs-everywhere-initialise)
+(add-hook 'server-done-hook #'emacs-everywhere-finish)
 
 (defvar emacs-everywhere-mode-initial-map
   (let ((keymap (make-sparse-keymap)))
@@ -157,16 +185,21 @@ buffers.")
 Must only be called within a emacs-everywhere buffer.
 Never paste content when ABORT is non-nil."
   (interactive)
-  (run-hooks 'emacs-everywhere-final-hooks)
-  (gui-select-text (buffer-string))
-  (unless (eq system-type 'darwin) ; handle clipboard finicklyness
-    (let ((clip-file (make-temp-file "ee-clipboard"))
-          (inhibit-message t)
-          (require-final-newline nil)
-          write-file-functions)
-      (pp (buffer-string))
-      (write-file clip-file)
-      (call-process "xclip" nil nil nil "-selection" "clipboard" clip-file)))
+  (unless emacs-everywhere-mode
+    (user-error "Not in an emacs-everywhere buffer!"))
+  (when (equal emacs-everywhere--contents (buffer-string))
+    (setq abort t))
+  (unless abort
+    (run-hooks 'emacs-everywhere-final-hooks)
+    (gui-select-text (buffer-string))
+    (unless (eq system-type 'darwin) ; handle clipboard finicklyness
+      (let ((clip-file (make-temp-file "ee-clipboard"))
+            (inhibit-message t)
+            (require-final-newline nil)
+            write-file-functions)
+        (pp (buffer-string))
+        (write-file clip-file)
+        (call-process "xclip" nil nil nil "-selection" "clipboard" clip-file))))
   (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
   (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
     (if (eq system-type 'darwin)
@@ -174,14 +207,21 @@ Never paste content when ABORT is non-nil."
                       "-e" (format "tell application \"%s\" to activate" window-id))
       (call-process "xdotool" nil nil nil
                     "windowactivate" "--sync" (number-to-string window-id)))
-    (when (and emacs-everywhere-paste-p (not abort))
+    ;; The frame only has this parameter if this package initialized the temp
+    ;; file its displaying. Otherwise, it was created by another program, likely
+    ;; a browser with direct EDITOR support, like qutebrowser.
+    (when (and (frame-parameter nil 'emacs-everywhere-app)
+               emacs-everywhere-paste-p
+               (not abort))
       (if (eq system-type 'darwin)
           (call-process "osascript" nil nil nil
                         "-e" "tell application \"System Events\" to keystroke (the clipboard as text)")
         (call-process "xdotool" nil nil nil
                       "key" "--clearmodifiers" "Shift+Insert"))))
-  (kill-buffer (current-buffer))
-  (delete-frame))
+  ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
+  ;; (b/c `server-existing-buffer' is non-nil).
+  (emacs-everywhere-mode -1)
+  (server-buffer-done (current-buffer)))
 
 (defun emacs-everywhere-abort ()
   "Abort current emacs-everywhere session."
