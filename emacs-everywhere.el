@@ -192,13 +192,12 @@ Never paste content when ABORT is non-nil."
       (run-hooks 'emacs-everywhere-final-hooks)
       (gui-select-text (buffer-string))
       (unless (eq system-type 'darwin) ; handle clipboard finicklyness
-        (let ((clip-file (make-temp-file "ee-clipboard"))
-              (inhibit-message t)
+        (let ((inhibit-message t)
               (require-final-newline nil)
               write-file-functions)
+          (write-file buffer-file-name)
           (pp (buffer-string))
-          (write-file clip-file)
-          (call-process "xclip" nil nil nil "-selection" "clipboard" clip-file))))
+          (call-process "xclip" nil nil nil "-selection" "clipboard" buffer-file-name))))
     (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
     (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
       (if (eq system-type 'darwin)
