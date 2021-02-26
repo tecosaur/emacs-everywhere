@@ -122,47 +122,41 @@ APP is an `emacs-everywhere-app' struct."
     (emacs-everywhere-mode 1)
     (select-frame-set-input-focus (selected-frame))))
 
+(defvar emacs-everywhere-mode-initial-map
+  (let ((keymap (make-sparse-keymap)))
+    (define-key keymap (kbd "DEL")   #'erase-buffer)
+    (define-key keymap (kbd "C-SPC") #'erase-buffer)
+    keymap)
+  "Transient keymap invoked when an emacs-everywhere buffer is first created.
+Set to `nil' to prevent this transient map from activating in emacs-everywhere
+buffers.")
+
 (define-minor-mode emacs-everywhere-mode
   "Tweak the current buffer to add some emacs-everywhere considerations."
   :init-value nil
-  :keymap (list
-           ;; Finish edit, but be smart in org mode
-           (cons (kbd "C-c C-c")
-                 (lambda ()
-                   (interactive)
-                   (if (and (eq major-mode 'org-mode)
-                            (org-in-src-block-p))
-                       (org-ctrl-c-ctrl-c)
-                     (emacs-everywhere-finish))))
-           ;; Kill frame
-           (cons (kbd "C-x 5 0")
-                 (lambda ()
-                   (interactive)
-                   (emacs-everywhere-finish)))
-           ;; Abort edit. emacs-anywhere saves the current edit for next time.
-           (cons (kbd "C-c C-k")
-                 (lambda ()
-                   (interactive)
-                   (emacs-everywhere-finish t))))
+  :keymap `((,(kbd "C-c C-c") . emacs-everywhere-finish-or-ctrl-c-ctrl-c)
+            (,(kbd "C-x 5 0") . emacs-everywhere-finish)
+            (,(kbd "C-c C-k") . emacs-everywhere-abort))
   ;; line breaking
   (turn-off-auto-fill)
   (visual-line-mode t)
   ;; DEL/C-SPC to clear (first keystroke only)
-  (set-transient-map (let ((keymap (make-sparse-keymap)))
-                       (define-key keymap (kbd "DEL")
-                         (lambda ()
-                           (interactive)
-                           (delete-region (point-min) (point-max))))
-                       (define-key keymap (kbd "C-SPC")
-                         (lambda ()
-                           (interactive)
-                           (delete-region (point-min) (point-max))))
-                       keymap)))
+  (when (keymapp emacs-everywhere-mode-initial-map)
+    (set-transient-map emacs-everywhere-mode-initial-map)))
+
+(defun emacs-everywhere-finish-or-ctrl-c-ctrl-c ()
+  "Finish emacs-everywhere session or invoke `org-ctrl-c-ctrl-c' in org-mode."
+  (interactive)
+  (if (and (eq major-mode 'org-mode)
+           (org-in-src-block-p))
+      (org-ctrl-c-ctrl-c)
+    (emacs-everywhere-finish)))
 
 (defun emacs-everywhere-finish (&optional abort)
   "Copy buffer content, close emacs-everywhere window, and maybe paste.
 Must only be called within a emacs-everywhere buffer.
 Never paste content when ABORT is non-nil."
+  (interactive)
   (run-hooks 'emacs-everywhere-final-hooks)
   (gui-select-text (buffer-string))
   (unless (eq system-type 'darwin) ; handle clipboard finicklyness
@@ -188,6 +182,11 @@ Never paste content when ABORT is non-nil."
                       "key" "--clearmodifiers" "Shift+Insert"))))
   (kill-buffer (current-buffer))
   (delete-frame))
+
+(defun emacs-everywhere-abort ()
+  "Abort current emacs-everywhere session."
+  (interactive)
+  (emacs-everywhere-finish t))
 
 ;;; Window info
 
