@@ -185,43 +185,42 @@ buffers.")
 Must only be called within a emacs-everywhere buffer.
 Never paste content when ABORT is non-nil."
   (interactive)
-  (unless emacs-everywhere-mode
-    (user-error "Not in an emacs-everywhere buffer!"))
-  (when (equal emacs-everywhere--contents (buffer-string))
-    (setq abort t))
-  (unless abort
-    (run-hooks 'emacs-everywhere-final-hooks)
-    (gui-select-text (buffer-string))
-    (unless (eq system-type 'darwin) ; handle clipboard finicklyness
-      (let ((clip-file (make-temp-file "ee-clipboard"))
-            (inhibit-message t)
-            (require-final-newline nil)
-            write-file-functions)
-        (pp (buffer-string))
-        (write-file clip-file)
-        (call-process "xclip" nil nil nil "-selection" "clipboard" clip-file))))
-  (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
-  (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
-    (if (eq system-type 'darwin)
-        (call-process "osascript" nil nil nil
-                      "-e" (format "tell application \"%s\" to activate" window-id))
-      (call-process "xdotool" nil nil nil
-                    "windowactivate" "--sync" (number-to-string window-id)))
-    ;; The frame only has this parameter if this package initialized the temp
-    ;; file its displaying. Otherwise, it was created by another program, likely
-    ;; a browser with direct EDITOR support, like qutebrowser.
-    (when (and (frame-parameter nil 'emacs-everywhere-app)
-               emacs-everywhere-paste-p
-               (not abort))
+  (when emacs-everywhere-mode
+    (when (equal emacs-everywhere--contents (buffer-string))
+      (setq abort t))
+    (unless abort
+      (run-hooks 'emacs-everywhere-final-hooks)
+      (gui-select-text (buffer-string))
+      (unless (eq system-type 'darwin) ; handle clipboard finicklyness
+        (let ((clip-file (make-temp-file "ee-clipboard"))
+              (inhibit-message t)
+              (require-final-newline nil)
+              write-file-functions)
+          (pp (buffer-string))
+          (write-file clip-file)
+          (call-process "xclip" nil nil nil "-selection" "clipboard" clip-file))))
+    (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
+    (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
       (if (eq system-type 'darwin)
           (call-process "osascript" nil nil nil
-                        "-e" "tell application \"System Events\" to keystroke (the clipboard as text)")
+                        "-e" (format "tell application \"%s\" to activate" window-id))
         (call-process "xdotool" nil nil nil
-                      "key" "--clearmodifiers" "Shift+Insert"))))
-  ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
-  ;; (b/c `server-existing-buffer' is non-nil).
-  (emacs-everywhere-mode -1)
-  (server-buffer-done (current-buffer)))
+                      "windowactivate" "--sync" (number-to-string window-id)))
+      ;; The frame only has this parameter if this package initialized the temp
+      ;; file its displaying. Otherwise, it was created by another program, likely
+      ;; a browser with direct EDITOR support, like qutebrowser.
+      (when (and (frame-parameter nil 'emacs-everywhere-app)
+                 emacs-everywhere-paste-p
+                 (not abort))
+        (if (eq system-type 'darwin)
+            (call-process "osascript" nil nil nil
+                          "-e" "tell application \"System Events\" to keystroke (the clipboard as text)")
+          (call-process "xdotool" nil nil nil
+                        "key" "--clearmodifiers" "Shift+Insert"))))
+    ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
+    ;; (b/c `server-existing-buffer' is non-nil).
+    (emacs-everywhere-mode -1)
+    (server-buffer-done (current-buffer))))
 
 (defun emacs-everywhere-abort ()
   "Abort current emacs-everywhere session."
