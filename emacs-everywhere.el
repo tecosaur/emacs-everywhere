@@ -388,18 +388,19 @@ Should end in a newline to avoid interfering with the buffer content."
  :type 'string
  :group 'emacs-everywhere)
 
+(defvar org-export-show-temporary-export-buffer)
 (defun emacs-everywhere-return-converted-org-to-gfm ()
   "When appropriate, convert org buffer to markdown."
   (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p))
     (goto-char (point-min))
     (insert emacs-everywhere-org-export-options)
-    (let ((export-buffer (generate-new-buffer "*Emacs Everywhere Export*")))
-      (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) export-buffer)
-      (delete-window)
-      (erase-buffer)
-      (insert-buffer-substring export-buffer)
-      (kill-buffer export-buffer))))
+    (let ((export-buffer (generate-new-buffer "*Emacs Everywhere Export*"))
+          org-export-show-temporary-export-buffer) ; don't create a split!
+      (unwind-protect
+          (replace-buffer-contents
+           (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) (current-buffer)))
+        (kill-buffer export-buffer)))))
 
 (provide 'emacs-everywhere)
 ;;; emacs-everywhere.el ends here
