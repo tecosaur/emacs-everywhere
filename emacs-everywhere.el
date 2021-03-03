@@ -419,14 +419,14 @@ Otherwise use `org-mode'."
     (org-mode)))
 
 (defcustom emacs-everywhere-org-export-options
- "#+property: header-args :exports both
+  "#+property: header-args :exports both
 #+options: toc:nil\n"
- "A string inserted at the top of the Org buffer prior to export.
+  "A string inserted at the top of the Org buffer prior to export.
 This is with the purpose of setting #+property and #+options parameters.
 
 Should end in a newline to avoid interfering with the buffer content."
- :type 'string
- :group 'emacs-everywhere)
+  :type 'string
+  :group 'emacs-everywhere)
 
 (defvar org-export-show-temporary-export-buffer)
 (defun emacs-everywhere-return-converted-org-to-gfm ()
