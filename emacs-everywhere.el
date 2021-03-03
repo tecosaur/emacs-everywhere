@@ -153,8 +153,10 @@ APP is an `emacs-everywhere-app' struct."
 
 (defvar emacs-everywhere-mode-initial-map
   (let ((keymap (make-sparse-keymap)))
-    (define-key keymap (kbd "DEL")   #'erase-buffer)
-    (define-key keymap (kbd "C-SPC") #'erase-buffer)
+    (define-key keymap (kbd "DEL")
+      (lambda () (interactive) (delete-region (point-min) (point-max))))
+    (define-key keymap (kbd "C-SPC")
+      (lambda () (interactive) (delete-region (point-min) (point-max))))
     keymap)
   "Transient keymap invoked when an emacs-everywhere buffer is first created.
 Set to `nil' to prevent this transient map from activating in emacs-everywhere
