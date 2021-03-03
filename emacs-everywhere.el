@@ -153,10 +153,8 @@ APP is an `emacs-everywhere-app' struct."
 
 (defvar emacs-everywhere-mode-initial-map
   (let ((keymap (make-sparse-keymap)))
-    (define-key keymap (kbd "DEL")
-      (lambda () (interactive) (delete-region (point-min) (point-max))))
-    (define-key keymap (kbd "C-SPC")
-      (lambda () (interactive) (delete-region (point-min) (point-max))))
+    (define-key keymap (kbd "DEL") #'emacs-everywhere-erase-buffer)
+    (define-key keymap (kbd "C-SPC") #'emacs-everywhere-erase-buffer)
     keymap)
   "Transient keymap invoked when an emacs-everywhere buffer is first created.
 Set to `nil' to prevent this transient map from activating in emacs-everywhere
@@ -174,6 +172,11 @@ buffers.")
   ;; DEL/C-SPC to clear (first keystroke only)
   (when (keymapp emacs-everywhere-mode-initial-map)
     (set-transient-map emacs-everywhere-mode-initial-map)))
+
+(defun emacs-everywhere-erase-buffer ()
+  "Delete the contents of the current buffer."
+  (interactive)
+  (delete-region (point-min) (point-max)))
 
 (defun emacs-everywhere-finish-or-ctrl-c-ctrl-c ()
   "Finish emacs-everywhere session or invoke `org-ctrl-c-ctrl-c' in org-mode."
