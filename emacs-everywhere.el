@@ -438,7 +438,8 @@ Should end in a newline to avoid interfering with the buffer content."
              (emacs-everywhere-markdown-p))
     (goto-char (point-min))
     (insert emacs-everywhere-org-export-options)
-    (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) (current-buffer))))
+    (let (org-export-show-temporary-export-buffer)
+      (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) (current-buffer)))))
 
 (provide 'emacs-everywhere)
 ;;; emacs-everywhere.el ends here
