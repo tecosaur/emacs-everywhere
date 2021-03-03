@@ -86,9 +86,9 @@ Formatted with the app name, and truncated window name."
 
 (defcustom emacs-everywhere-file-patterns
   (let ((default-directory temporary-file-directory))
-    (list (concat "^" (regexp-quote (expand-file-name "emacs-everywhere-")))
+    (list (concat "^" (regexp-quote (file-truename "emacs-everywhere-")))
           ;; For qutebrowser 'editor.command' support
-          (concat "^" (regexp-quote (expand-file-name "qutebrowser-editor-")))))
+          (concat "^" (regexp-quote (file-truename "qutebrowser-editor-")))))
   "A list of file regexps to activate `emacs-everywhere-mode' for."
   :type '(repeat regexp)
   :group 'emacs-everywhere)
@@ -130,8 +130,9 @@ Formatted with the app name, and truncated window name."
 (defun emacs-everywhere-file-p (file)
   "Return non-nil if FILE should be handled by emacs-everywhere.
 This matches FILE against `emacs-everywhere-file-patterns'."
-  (cl-some (lambda (pattern) (string-match-p pattern file))
-           emacs-everywhere-file-patterns))
+  (let ((file (file-truename file)))
+    (cl-some (lambda (pattern) (string-match-p pattern file))
+             emacs-everywhere-file-patterns)))
 
 ;;;###autoload
 (defun emacs-everywhere-initialise ()
