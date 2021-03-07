@@ -21,4 +21,5 @@ jobs:
         env:
           RECIPE: (emacs-everywhere :repo "tecosaur/emacs-everywhere" :fetcher github)
           EXIST_OK: false
+          LOCAL_REPO: ${{ github.workspace }}
         run: echo $GITHUB_REF && make -C ~/melpazoid
