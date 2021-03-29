@@ -219,7 +219,7 @@ Never paste content when ABORT is non-nil."
                  (not abort))
         (if (eq system-type 'darwin)
             (call-process "osascript" nil nil nil
-                          "-e" "tell application \"System Events\" to keystroke (the clipboard as text)")
+                          "-e" "tell application \"System Events\" to keystroke \"v\" using command down")
           (call-process "xdotool" nil nil nil
                         "key" "--clearmodifiers" "Shift+Insert"))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
