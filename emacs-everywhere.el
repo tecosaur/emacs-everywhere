@@ -138,14 +138,15 @@ This matches FILE against `emacs-everywhere-file-patterns'."
 (defun emacs-everywhere-initialise ()
   "Entry point for the executable.
 APP is an `emacs-everywhere-app' struct."
-  (when (emacs-everywhere-file-p (buffer-file-name (buffer-base-buffer)))
+  (let ((file (buffer-file-name (buffer-base-buffer))))
+   (when (and file (emacs-everywhere-file-p file))
     (let ((app (or (frame-parameter nil 'emacs-everywhere-app)
                    (emacs-everywhere-app-info))))
       (setq-local emacs-everywhere-current-app app)
       (with-demoted-errors "Emacs Everywhere: error running init hooks, %s"
         (run-hooks 'emacs-everywhere-init-hooks))
       (emacs-everywhere-mode 1)
-      (setq emacs-everywhere--contents (buffer-string)))))
+      (setq emacs-everywhere--contents (buffer-string))))))
 
 ;;;###autoload
 (add-hook 'server-visit-hook #'emacs-everywhere-initialise)
