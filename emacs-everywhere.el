@@ -205,7 +205,7 @@ Never paste content when ABORT is non-nil."
           (write-file buffer-file-name)
           (pp (buffer-string))
           (call-process "xclip" nil nil nil "-selection" "clipboard" buffer-file-name))))
-    (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
+    (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
     (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
       (if (eq system-type 'darwin)
           (call-process "osascript" nil nil nil
@@ -386,7 +386,7 @@ return windowTitle"))
       (progn
         (call-process "osascript" nil nil nil
                       "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
-        (sit-for 0.01) ; lets clipboard info propagate
+        (sleep-for 0.01) ; lets clipboard info propagate
         (yank))
     (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
       (gui-backend-set-selection 'PRIMARY "")
