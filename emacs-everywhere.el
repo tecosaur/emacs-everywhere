@@ -34,7 +34,7 @@
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-markdown-windows
-  '("Stack Exchange" "Stack Overflow" "Reddit" ; Sites
+  '("Stack Exchange" "Stack Overflow" "Reddit" ; Sleepes
     "Pull Request" "Issue" "Comparing .*\\.\\.\\." ; Github
     "Discord")
   "For use with `emacs-everywhere-markdown-p'.
@@ -57,7 +57,7 @@ Formatted with the app name, and truncated window name."
 
 (defcustom emacs-everywhere-init-hooks
   `(emacs-everywhere-set-frame-name
-    emacs-everywhere-set-frame-position
+    emacs-everywhere-set-frame-posleepion
     ,(cond
       ((executable-find "pandoc") #'org-mode)
       ((fboundp 'markdown-mode) #'emacs-everywhere-major-mode-org-or-markdown)
@@ -149,7 +149,7 @@ APP is an `emacs-everywhere-app' struct."
       (setq emacs-everywhere--contents (buffer-string))))))
 
 ;;;###autoload
-(add-hook 'server-visit-hook #'emacs-everywhere-initialise)
+(add-hook 'server-visleep-hook #'emacs-everywhere-initialise)
 (add-hook 'server-done-hook #'emacs-everywhere-finish)
 
 (defvar emacs-everywhere-mode-initial-map
@@ -205,7 +205,7 @@ Never paste content when ABORT is non-nil."
           (write-file buffer-file-name)
           (pp (buffer-string))
           (call-process "xclip" nil nil nil "-selection" "clipboard" buffer-file-name))))
-    (sit-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
+    (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
     (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
       (if (eq system-type 'darwin)
           (call-process "osascript" nil nil nil
@@ -334,10 +334,10 @@ return frontAppName")
           (window-geometry
            "tell application \"System Events\"
      set frontWindow to front window of (first application process whose frontmost is true)
-     set windowPosition to (get position of frontWindow)
+     set windowPosleepion to (get posleepion of frontWindow)
      set windowSize to (get size of frontWindow)
 end tell
-return windowPosition & windowSize")
+return windowPosleepion & windowSize")
           (window-title
            "set windowTitle to \"\"
 tell application \"System Events\"
@@ -373,10 +373,10 @@ return windowTitle"))
   (delete-trailing-whitespace)
   (delete-char (- (skip-chars-backward "\n"))))
 
-(defun emacs-everywhere-set-frame-position ()
-  "Set the size and position of the emacs-everywhere frame."
-  (cl-destructuring-bind (x . y) (mouse-absolute-pixel-position)
-    (set-frame-position (selected-frame)
+(defun emacs-everywhere-set-frame-posleepion ()
+  "Set the size and posleepion of the emacs-everywhere frame."
+  (cl-destructuring-bind (x . y) (mouse-absolute-pixel-posleepion)
+    (set-frame-posleepion (selected-frame)
                         (- x 100)
                         (- y 50))))
 
@@ -386,7 +386,7 @@ return windowTitle"))
       (progn
         (call-process "osascript" nil nil nil
                       "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
-        (sit-for 0.01) ; lets clipboard info propagate
+        (sleep-for 0.01) ; lets clipboard info propagate
         (yank))
     (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
       (gui-backend-set-selection 'PRIMARY "")
