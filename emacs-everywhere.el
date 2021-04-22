@@ -9,7 +9,7 @@
 ;; Version: 0.0.1
 ;; Keywords: conenience, frames
 ;; Homepage: https://github.com/tecosaur/emacs-everywhere
-;; Package-Requires: ((emacs "26.3") (cl-lib "0.5"))
+;; Package-Requires: ((emacs "26.3") (cl-lib "0.5") (with-editor "0"))
 
 ;;; License:
 
@@ -23,6 +23,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'with-editor)
 
 (defgroup emacs-everywhere ()
   "Customise group for Emacs-everywhere."
@@ -93,6 +94,12 @@ Formatted with the app name, and truncated window name."
   :type '(repeat regexp)
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-emacsclient-executable
+  (with-editor-locate-emacsclient)
+  "Executable of emacsclient."
+  :type 'file
+  :group 'emacs-everywhere)
+
 ;; Semi-internal variables
 
 (defvar-local emacs-everywhere-current-app nil
@@ -116,7 +123,7 @@ Formatted with the app name, and truncated window name."
 ;;;###autoload
 (defun emacs-everywhere (&optional file line column)
   "Lanuch the emacs-everywhere frame from emacsclient."
-  (apply #'call-process "emacsclient" nil 0 nil
+  (apply #'call-process emacs-everywhere-emacsclient-executable nil 0 nil
          (delq
           nil (list
                "-c" "-F"
