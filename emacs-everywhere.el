@@ -119,6 +119,9 @@ Formatted with the app name, and truncated window name."
   (apply #'call-process "emacsclient" nil 0 nil
          (delq
           nil (list
+               ;; pass emacs server name to support multiple emacs servers
+               (if server-name
+                   "-s" server-name)
                "-c" "-F"
                (prin1-to-string
                 (cons (cons 'emacs-everywhere-app (emacs-everywhere-app-info))
