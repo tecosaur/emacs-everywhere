@@ -23,6 +23,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'server)
 
 (defgroup emacs-everywhere ()
   "Customise group for Emacs-everywhere."
@@ -119,6 +120,14 @@ Formatted with the app name, and truncated window name."
   (apply #'call-process "emacsclient" nil 0 nil
          (delq
           nil (list
+               (when (server-running-p)
+                 (if server-use-tcp
+                     (concat "--server-file="
+                             (shell-quote-argument
+                              (expand-file-name server-name server-auth-dir)))
+                   (concat "--socket-name="
+                           (shell-quote-argument
+                            (expand-file-name server-name server-socket-dir)))))
                "-c" "-F"
                (prin1-to-string
                 (cons (cons 'emacs-everywhere-app (emacs-everywhere-app-info))
