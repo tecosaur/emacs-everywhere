@@ -44,7 +44,7 @@ Patterns which are matched against the window title."
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-markdown-apps
-  '("Discord")
+  '("Discord" "Element" "Fractal" "NeoChat")
   "For use with `emacs-everywhere-markdown-p'.
 Patterns which are matched against the app name."
   :type '(rep string)
