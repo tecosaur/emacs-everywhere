@@ -474,6 +474,7 @@ Should end in a newline to avoid interfering with the buffer content."
     (goto-char (point-min))
     (insert emacs-everywhere-org-export-options)
     (let (org-export-show-temporary-export-buffer)
+      (require 'ox-md)
       (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) (current-buffer)))))
 
 (provide 'emacs-everywhere)
