@@ -240,6 +240,7 @@ Never paste content when ABORT is non-nil."
 (defun emacs-everywhere-abort ()
   "Abort current emacs-everywhere session."
   (interactive)
+  (set-buffer-modified-p nil)
   (emacs-everywhere-finish t))
 
 ;;; Window info
