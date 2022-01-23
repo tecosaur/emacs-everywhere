@@ -116,6 +116,10 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
 
 ;; Semi-internal variables
 
+(defconst emacs-everywhere-osascript-accessibility-error-message
+  "osascript is not allowed assistive access"
+  "String to search for to determine if Emacs does not have accessibility rights.")
+
 (defvar-local emacs-everywhere-current-app nil
   "The current `emacs-everywhere-app'")
 ;; Prevents buffer-local variable from being unset by major mode changes
@@ -291,6 +295,12 @@ Never paste content when ABORT is non-nil."
   "Execute COMMAND with ARGS synchronously."
   (with-temp-buffer
     (apply #'call-process command nil t nil (remq nil args))
+    (when (and (eq system-type 'darwin)
+               (string-match-p emacs-everywhere-osascript-accessibility-error-message (buffer-string)))
+      (call-process "osascript" nil nil nil
+                        "-e" (format "display alert \"emacs-everywhere\" message \"Emacs has not been granted accessibility permissions, cannot run emacs-everywhere!
+Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility' and allow Emacs.\"" ))
+      (error "MacOS accessbility error, aborting."))
     (string-trim (buffer-string))))
 
 (defun emacs-everywhere-app-info-linux ()
