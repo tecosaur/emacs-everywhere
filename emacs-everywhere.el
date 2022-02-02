@@ -300,7 +300,7 @@ Never paste content when ABORT is non-nil."
       (call-process "osascript" nil nil nil
                         "-e" (format "display alert \"emacs-everywhere\" message \"Emacs has not been granted accessibility permissions, cannot run emacs-everywhere!
 Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility' and allow Emacs.\"" ))
-      (error "MacOS accessbility error, aborting."))
+      (error "MacOS accessibility error, aborting."))
     (string-trim (buffer-string))))
 
 (defun emacs-everywhere-app-info-linux ()
