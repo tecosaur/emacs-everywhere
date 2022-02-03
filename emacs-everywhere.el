@@ -34,8 +34,15 @@
   :type 'boolean
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-paste-cmd nil
+  "How to paste back. List like (cmd arg1 arg2). Used with `emacs-everywhere-paste'.
+Example: '(\"xdotool\" \"key\" \"--clearmodifiers\" \"Shift+Insert\")
+Consider pairing with `make-local-variable' in `emacs-everywhere-init-hooks'"
+  :type 'sexp
+  :group 'emacs-everywhere)
+
 (defcustom emacs-everywhere-markdown-windows
-  '("Stack Exchange" "Stack Overflow" "Reddit" ; Sites
+  '("Stack Exchange" "Stack Overflow" "Reddit"     ; Sites
     "Pull Request" "Issue" "Comparing .*\\.\\.\\." ; Github
     "Discord")
   "For use with `emacs-everywhere-markdown-p'.
@@ -224,6 +231,45 @@ buffers.")
       (org-ctrl-c-ctrl-c)
     (emacs-everywhere-finish)))
 
+(defun emacs-everywhere-what-paste-cmd ()
+  "What command to use to paste."
+  (cond (emacs-everywhere-paste-cmd
+         emacs-everywhere-paste-cmd)
+        ((eq system-type 'darwin)
+         '("osascript"
+           "-e"
+           "tell application \"System Events\" to keystroke \"v\" using command down"))
+        (t
+         '("xdotool"
+           "key"
+           "--clearmodifiers"
+           "Shift+Insert"))))
+
+(defun emacs-everywhere-paste ()
+  "Paste with operating system specific program or custom cmd"
+  (interactive)
+  (let* ((cmd-list (emacs-everywhere-what-paste-cmd))
+         (cmd (car cmd-list))
+         (args (cdr cmd-list)))
+    (eval `(call-process ,cmd nil nil nil ,@args))))
+
+(defun emacs-everywhere-linux-copy ()
+  "Put the current buffer onto the clipboard."
+  (let ((inhibit-message t)
+        (require-final-newline nil)
+        write-file-functions)
+    (write-file buffer-file-name)
+    (pp (buffer-string))
+    (call-process "xclip" nil nil nil "-selection" "clipboard" buffer-file-name)))
+
+(defcustom emacs-everywhere-linux-copy-function
+  #'emacs-everywhere-linux-copy
+  "A function to populate the clipboard. To be pasted into original app by `emacs-everywhere-paste'"
+  :type 'function
+  :group 'emacs-everywhere)
+
+
+
 (defun emacs-everywhere-finish (&optional abort)
   "Copy buffer content, close emacs-everywhere window, and maybe paste.
 Must only be called within a emacs-everywhere buffer.
@@ -236,12 +282,7 @@ Never paste content when ABORT is non-nil."
       (run-hooks 'emacs-everywhere-final-hooks)
       (gui-select-text (buffer-string))
       (unless (eq system-type 'darwin) ; handle clipboard finicklyness
-        (let ((inhibit-message t)
-              (require-final-newline nil)
-              write-file-functions)
-          (write-file buffer-file-name)
-          (pp (buffer-string))
-          (call-process "xclip" nil nil nil "-selection" "clipboard" buffer-file-name))))
+        (funcall emacs-everywhere-linux-copy-function)))
     (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
     (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
       (if (eq system-type 'darwin)
@@ -255,11 +296,7 @@ Never paste content when ABORT is non-nil."
       (when (and (frame-parameter nil 'emacs-everywhere-app)
                  emacs-everywhere-paste-p
                  (not abort))
-        (if (eq system-type 'darwin)
-            (call-process "osascript" nil nil nil
-                          "-e" "tell application \"System Events\" to keystroke \"v\" using command down")
-          (call-process "xdotool" nil nil nil
-                        "key" "--clearmodifiers" "Shift+Insert"))))
+        (emacs-everywhere-paste)))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
     ;; (b/c `server-existing-buffer' is non-nil).
     (emacs-everywhere-mode -1)

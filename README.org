@@ -51,4 +51,26 @@ C-k= still copies the content to the clipboard, but never pastes.
 -----
 
 ^{*†*} This requires the Emacs daemon to be running, but that's super easy.
-Just call =emacs --daemon= and you're sorted!
+Just call =emacs --daemon= or =M-x server-start= and you're sorted!
+
+* Customize
+
+** Example hook
+   The default simulated key chord pastes into Pidgin as a single line. To preserve newlines, the desired combo is =Control+V= (instead of the default =Shift+Insert=). Here we create a function that temporarily modifies the paste command when emacs-everywhere was launched with Pidgin focused.
+   #+begin_src elisp
+   ;; "Paste as plaintext" using "Control Shift V" for GTK app Pidgin IM
+   (defun emacs-everywhere-pidgin-paste ()
+     (when (eq (emacs-everywhere-app-class emacs-everywhere-current-app) "Pidgin")
+       (set (make-local-variable 'emacs-everywhere-paste-cmd)
+            '("xdotool" "key" "--clearmodifiers" "Control+V"))))
+
+  (add-hook 'emacs-everywhere-init-hooks 'emacs-everywhere-pidgin-paste)
+   #+end_src
+
+** Highlights
+
+Window and app names that will open in markdown mode are enumerated in =emacs-everywhere-markdown-windows= and =emacs-everywhere-markdown-apps=.
+
+How the clipboard is handled can be redefined using =emacs-everywhere-linux-copy-function= and  =emacs-everywhere-paste-cmd=.
+
+See =M-x customize-groups [RET] emacs-everywhere= for the full list. Or peak at the source.
