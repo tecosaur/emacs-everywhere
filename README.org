@@ -58,7 +58,11 @@ Just call =emacs --daemon= and you're sorted!
   :ID:       96f5069b-8276-471c-a163-39eed3b27993
   :END:
 
-Emacs-everywhere needs a way to launch when a not-emacs application has focus. The easiest way to do this is to have a global keybinding/keyboard shortcut dedicated to launching @@html: <pre> emacsclient --eval "(emacs-everywhere)" </pre> @@
+Emacs-everywhere needs a way to launch when a not-emacs application has focus. The easiest way to do this is to have a global keybinding/keyboard shortcut dedicated to launching (same as above)
+
+#+begin_src shell
+emacsclient --eval "(emacs-everywhere)"
+#+end_src
 
 On linux/bsd, use your desktop environment, windows manager, or a dedicated processes (like sxhkd, xbindkeys). The [[https://help.ubuntu.com/stable/ubuntu-help/keyboard-shortcuts-set.html.en][ubuntu]] and [[https://wiki.archlinux.org/title/Keyboard_shortcuts#Customization][archlinux]] guides are informative.
 
