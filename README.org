@@ -60,8 +60,8 @@ Just call =emacs --daemon= or =M-x server-start= and you're sorted!
    #+begin_src elisp
    ;; "Paste as plaintext" using "Control Shift V" for GTK app Pidgin IM
    (defun emacs-everywhere-pidgin-paste ()
-     (when (eq (emacs-everywhere-app-class emacs-everywhere-current-app) "Pidgin")
-       (set (make-local-variable 'emacs-everywhere-paste-cmd)
+     (when (string= (emacs-everywhere-app-class emacs-everywhere-current-app) "Pidgin")
+       (set 'emacs-everywhere-paste-cmd
             '("xdotool" "key" "--clearmodifiers" "Control+V"))))
 
   (add-hook 'emacs-everywhere-init-hooks 'emacs-everywhere-pidgin-paste)
