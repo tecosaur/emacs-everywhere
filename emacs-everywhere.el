@@ -6,7 +6,7 @@
 ;; Maintainer: TEC <tec@tecosaur.com>
 ;; Created: February 06, 2021
 ;; Modified: February 06, 2021
-;; Version: 0.0.1
+;; Version: 0.1.0
 ;; Keywords: conenience, frames
 ;; Homepage: https://github.com/tecosaur/emacs-everywhere
 ;; Package-Requires: ((emacs "26.3") (cl-lib "0.5"))
@@ -29,9 +29,65 @@
   "Customise group for Emacs-everywhere."
   :group 'convenience)
 
-(defcustom emacs-everywhere-paste-p t
-  "Whether to paste the final buffer content on exit."
-  :type 'boolean
+(define-obsolete-variable-alias
+  'emacs-everywhere-paste-p 'emacs-everywhere-paste-command "0.1.0")
+
+(defvar emacs-everywhere--display-server
+  (cond
+   ((eq system-type 'darwin) 'quartz)
+   ((memq system-type '(ms-dos windows-nt cygwin)) 'windows)
+   (t (pcase (string-trim
+              (shell-command-to-string "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type")
+              "Type=" "\n")
+        ("x11" 'x11)
+        ("wayland" 'wayland)
+        (_ 'unknown))))
+  "The detected display server.")
+
+(defcustom emacs-everywhere-paste-command
+  (pcase emacs-everywhere--display-server
+    ('quartz (list "osascript" "-e" "tell application \"System Events\" to keystroke \"v\" using command down"))
+    ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
+    ((or 'wayland 'unknown)
+     (list "notify-send"
+           "No paste command defined for emacs-everywhere"
+           "-a" "Emacs" "-i" "emacs")))
+  "Command to trigger a system paste from the clipboard.
+This is given as a list in the form (CMD ARGS...).
+
+To not run any command, set to nil."
+  :type '(set (repeat string) (const nil))
+  :group 'emacs-everywhere)
+
+(defcustom emacs-everywhere-copy-command
+  (pcase emacs-everywhere--display-server
+    ('x11 (list "xclip" "-selection" "clipboard" "%f"))
+    ((and 'wayland (guard (executable-find "wl-copy")))
+     (list "sh" "-c" "wl-copy < %f")))
+  "Command to write to the system clipboard from a file (%f).
+This is given as a list in the form (CMD ARGS...).
+In the arguments, \"%f\" is treated as a placeholder for the path
+to the file.
+
+When nil, nothing is executed.
+
+`gui-select-text' is always called on the buffer content, however experience
+suggests that this can be somewhat flakey, and so an extra step to make sure
+it worked can be a good idea."
+  :type '(set (repeat string) (const nil))
+  :group 'emacs-everywhere)
+
+(defcustom emacs-everywhere-window-focus-command
+  (pcase emacs-everywhere--display-server
+    ('quartz (list "osascript" "-e" "tell application \"%w\" to activate"))
+    ('x11 (list "xdotool" "windowactivate" "--sync" "%w")))
+  "Command to refocus the active window when emacs-everywhere was triggered.
+This is given as a list in the form (CMD ARGS...).
+In the arguments, \"%w\" is treated as a placeholder for the window ID,
+as returned by `emacs-everywhere-app-id'.
+
+When nil, nothing is executed, and pasting is not attempted."
+  :type '(set (repeat string) (const nil))
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-markdown-windows
@@ -235,31 +291,32 @@ Never paste content when ABORT is non-nil."
     (unless abort
       (run-hooks 'emacs-everywhere-final-hooks)
       (gui-select-text (buffer-string))
-      (unless (eq system-type 'darwin) ; handle clipboard finicklyness
+      (when emacs-everywhere-copy-command ; handle clipboard finicklyness
         (let ((inhibit-message t)
               (require-final-newline nil)
               write-file-functions)
           (write-file buffer-file-name)
-          (pp (buffer-string))
-          (call-process "xclip" nil nil nil "-selection" "clipboard" buffer-file-name))))
+          (apply #'call-process (car emacs-everywhere-copy-command)
+                 nil nil nil
+                 (mapcar (lambda (arg)
+                           (replace-regexp-in-string "%f" buffer-file-name arg))
+                         (cdr emacs-everywhere-copy-command))))))
     (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
-    (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
-      (if (eq system-type 'darwin)
-          (call-process "osascript" nil nil nil
-                        "-e" (format "tell application \"%s\" to activate" window-id))
-        (call-process "xdotool" nil nil nil
-                      "windowactivate" "--sync" (number-to-string window-id)))
-      ;; The frame only has this parameter if this package initialized the temp
-      ;; file its displaying. Otherwise, it was created by another program, likely
-      ;; a browser with direct EDITOR support, like qutebrowser.
-      (when (and (frame-parameter nil 'emacs-everywhere-app)
-                 emacs-everywhere-paste-p
-                 (not abort))
-        (if (eq system-type 'darwin)
-            (call-process "osascript" nil nil nil
-                          "-e" "tell application \"System Events\" to keystroke \"v\" using command down")
-          (call-process "xdotool" nil nil nil
-                        "key" "--clearmodifiers" "Shift+Insert"))))
+    (when emacs-everywhere-window-focus-command
+      (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
+        (apply #'call-process (car emacs-everywhere-window-focus-command)
+               nil nil nil
+               (mapcar (lambda (arg)
+                         (replace-regexp-in-string "%w" (number-to-string window-id) arg))
+                       (cdr emacs-everywhere-window-focus-command)))
+        ;; The frame only has this parameter if this package initialized the temp
+        ;; file its displaying. Otherwise, it was created by another program, likely
+        ;; a browser with direct EDITOR support, like qutebrowser.
+        (when (and (frame-parameter nil 'emacs-everywhere-app)
+                   emacs-everywhere-paste-command
+                   (not abort))
+          (apply #'call-process (car emacs-everywhere-paste-command)
+                 nil nil nil (cdr emacs-everywhere-paste-command)))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
     ;; (b/c `server-existing-buffer' is non-nil).
     (emacs-everywhere-mode -1)
