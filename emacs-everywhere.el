@@ -9,7 +9,7 @@
 ;; Version: 0.1.0
 ;; Keywords: conenience, frames
 ;; Homepage: https://github.com/tecosaur/emacs-everywhere
-;; Package-Requires: ((emacs "26.3") (cl-lib "0.5"))
+;; Package-Requires: ((emacs "26.3"))
 
 ;;; License:
 
