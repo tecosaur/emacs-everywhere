@@ -36,12 +36,14 @@
   (cond
    ((eq system-type 'darwin) 'quartz)
    ((memq system-type '(ms-dos windows-nt cygwin)) 'windows)
-   (t (pcase (string-trim
-              (shell-command-to-string "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type")
-              "Type=" "\n")
-        ("x11" 'x11)
-        ("wayland" 'wayland)
-        (_ 'unknown))))
+   ((executable-find "loginctl")
+    (pcase (string-trim
+            (shell-command-to-string "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type")
+            "Type=" "\n")
+      ("x11" 'x11)
+      ("wayland" 'wayland)
+      (_ 'unknown)))
+   (t 'unknown))
   "The detected display server.")
 
 (defcustom emacs-everywhere-paste-command
