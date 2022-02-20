@@ -305,11 +305,12 @@ Never paste content when ABORT is non-nil."
                          (cdr emacs-everywhere-copy-command))))))
     (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
     (when emacs-everywhere-window-focus-command
-      (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app)))
+      (let* ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app))
+             (window-id-str (if (numberp window-id) (number-to-string window-id) window-id)))
         (apply #'call-process (car emacs-everywhere-window-focus-command)
                nil nil nil
                (mapcar (lambda (arg)
-                         (replace-regexp-in-string "%w" (number-to-string window-id) arg))
+                         (replace-regexp-in-string "%w" window-id-str arg))
                        (cdr emacs-everywhere-window-focus-command)))
         ;; The frame only has this parameter if this package initialized the temp
         ;; file its displaying. Otherwise, it was created by another program, likely
