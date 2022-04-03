@@ -318,8 +318,15 @@ Never paste content when ABORT is non-nil."
         (when (and (frame-parameter nil 'emacs-everywhere-app)
                    emacs-everywhere-paste-command
                    (not abort))
-          (apply #'call-process (car emacs-everywhere-paste-command)
-                 nil nil nil (cdr emacs-everywhere-paste-command)))))
+          (let ((paste-command
+                 (if (string-equal (emacs-everywhere-app-class emacs-everywhere-current-app)
+                                   "VirtualBox Machine")
+                     ;; send Ctrl-v to first running virtual machine
+                     `("VBoxManage" "controlvm" ,(nth 1 (split-string (shell-command-to-string "vboxmanage list runningvms") "\""))
+                                    "keyboardputscancode" "1D" "2F" "AF" "9D")
+                     emacs-everywhere-paste-command)))
+            (apply #'call-process (car paste-command)
+                   nil nil nil (cdr paste-command))))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
     ;; (b/c `server-existing-buffer' is non-nil).
     (emacs-everywhere-mode -1)
