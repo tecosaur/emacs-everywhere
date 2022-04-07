@@ -93,9 +93,9 @@ When nil, nothing is executed, and pasting is not attempted."
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-markdown-windows
-  '("Stack Exchange" "Stack Overflow" "Reddit" ; Sites
-    "Pull Request" "Issue" "Comparing .*\\.\\.\\." ; Github
-    "Discord")
+  '("Reddit" "Stack Exchange" "Stack Overflow" ; Sites
+    "Discord" "Element" "Slack" "HedgeDoc" "HackMD" "Zulip" ; Web Apps
+    "Pull Request" "Issue" "Comparing .*\\.\\.\\.") ; Github
   "For use with `emacs-everywhere-markdown-p'.
 Patterns which are matched against the window title."
   :type '(rep string)
