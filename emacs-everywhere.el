@@ -109,13 +109,25 @@ Formatted with the app name, and truncated window name."
   :type 'string
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-major-mode-function
+  (cond
+   ((executable-find "pandoc") #'org-mode)
+   ((fboundp 'markdown-mode) #'emacs-everywhere-major-mode-org-or-markdown)
+   (t #'text-mode))
+  "Function which sets the major mode for the Emacs Everywhere buffer.
+
+When set to `org-mode', pandoc is used to convert from markdown to Org
+when applicable."
+  :type 'function
+  :options '(org-mode
+             emacs-everywhere-major-mode-org-or-markdown
+             text-mode)
+  :group 'emacs-everywhere)
+
 (defcustom emacs-everywhere-init-hooks
-  `(emacs-everywhere-set-frame-name
+  '(emacs-everywhere-set-frame-name
     emacs-everywhere-set-frame-position
-    ,(cond
-      ((executable-find "pandoc") #'org-mode)
-      ((fboundp 'markdown-mode) #'emacs-everywhere-major-mode-org-or-markdown)
-      (t #'text-mode))
+    emacs-everywhere-major-mode-function
     emacs-everywhere-insert-selection
     emacs-everywhere-remove-trailing-whitespace
     emacs-everywhere-init-spell-check)
