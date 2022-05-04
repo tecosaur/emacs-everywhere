@@ -36,13 +36,8 @@
   (cond
    ((eq system-type 'darwin) 'quartz)
    ((memq system-type '(ms-dos windows-nt cygwin)) 'windows)
-   ((executable-find "loginctl")
-    (pcase (string-trim
-            (shell-command-to-string "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type | tail -1")
-            "Type=" "\n")
-      ("x11" 'x11)
-      ("wayland" 'wayland)
-      (_ 'unknown)))
+   ((eq system-type 'gnu/linux)
+    (if (getenv "WAYLAND_DISPLAY") 'wayland 'x11))
    (t 'unknown))
   "The detected display server.")
 
