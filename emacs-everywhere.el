@@ -38,7 +38,7 @@
    ((memq system-type '(ms-dos windows-nt cygwin)) 'windows)
    ((executable-find "loginctl")
     (pcase (string-trim
-            (shell-command-to-string "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type")
+            (shell-command-to-string "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type | tail -1")
             "Type=" "\n")
       ("x11" 'x11)
       ("wayland" 'wayland)
