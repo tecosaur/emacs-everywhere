@@ -338,6 +338,49 @@ Never paste content when ABORT is non-nil."
   (set-buffer-modified-p nil)
   (emacs-everywhere-finish t))
 
+(defun emacs-everywhere-finish-src-block (&optional abort)
+  "Copy src block content, close emacs-everywhere window, and maybe paste.
+Must only be called within a emacs-everywhere buffer.
+Never paste content when ABORT is non-nil."
+  (interactive)
+  (when emacs-everywhere-mode
+    (when (equal emacs-everywhere--contents (buffer-string))
+      (setq abort t))
+    (unless abort
+      (run-hooks 'emacs-everywhere-final-hooks)
+      (gui-select-text (buffer-string))
+      (when emacs-everywhere-copy-command ; handle clipboard finicklyness
+        (let ((inhibit-message t)
+              (require-final-newline nil)
+              write-file-functions)
+          (f-write-text (org-element-property :value (org-element-at-point)) 'utf-8 buffer-file-name)
+          (apply #'call-process (car emacs-everywhere-copy-command)
+                 nil nil nil
+                 (mapcar (lambda (arg)
+                           (replace-regexp-in-string "%f" buffer-file-name arg))
+                         (cdr emacs-everywhere-copy-command))))))
+    (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
+    (when emacs-everywhere-window-focus-command
+      (let* ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app))
+             (window-id-str (if (numberp window-id) (number-to-string window-id) window-id)))
+        (apply #'call-process (car emacs-everywhere-window-focus-command)
+               nil nil nil
+               (mapcar (lambda (arg)
+                         (replace-regexp-in-string "%w" window-id-str arg))
+                       (cdr emacs-everywhere-window-focus-command)))
+        ;; The frame only has this parameter if this package initialized the temp
+        ;; file its displaying. Otherwise, it was created by another program, likely
+        ;; a browser with direct EDITOR support, like qutebrowser.
+        (when (and (frame-parameter nil 'emacs-everywhere-app)
+                   emacs-everywhere-paste-command
+                   (not abort))
+          (apply #'call-process (car emacs-everywhere-paste-command)
+                 nil nil nil (cdr emacs-everywhere-paste-command)))))
+    ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
+    ;; (b/c `server-existing-buffer' is non-nil).
+    (emacs-everywhere-mode -1)
+    (server-buffer-done (current-buffer))))
+
 ;;; Window info
 
 (cl-defstruct emacs-everywhere-app
