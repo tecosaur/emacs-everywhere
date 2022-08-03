@@ -205,7 +205,7 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
 
 ;;;###autoload
 (defun emacs-everywhere (&optional file line column)
-  "Lanuch the emacs-everywhere frame from emacsclient."
+  "Launch the emacs-everywhere frame from emacsclient."
   (let ((app-info (emacs-everywhere-app-info)))
     (apply #'call-process "emacsclient" nil 0 nil
            (delq
