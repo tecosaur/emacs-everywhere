@@ -124,6 +124,10 @@ when applicable."
              text-mode)
   :group 'emacs-everywhere)
 
+(defun emacs-everywhere-major-mode-function ()
+  "Apply the major mode function."
+  (funcall emacs-everywhere-major-mode-function))
+
 (defcustom emacs-everywhere-init-hooks
   '(emacs-everywhere-set-frame-name
     emacs-everywhere-set-frame-position
