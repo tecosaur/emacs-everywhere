@@ -3,7 +3,7 @@
 ;; Copyright (C) 2021 TEC
 
 ;; Author: TEC <https://github.com/tecosaur>
-;; Maintainer: TEC <tec@tecosaur.com>
+;; Maintainer: TEC <contact@tecosaur.net>
 ;; Created: February 06, 2021
 ;; Modified: February 06, 2021
 ;; Version: 0.1.0
