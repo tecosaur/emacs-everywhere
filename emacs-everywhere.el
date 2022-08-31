@@ -304,6 +304,7 @@ Never paste content when ABORT is non-nil."
     (unless abort
       (run-hooks 'emacs-everywhere-final-hooks)
       (gui-select-text (buffer-string))
+      (gui-backend-set-selection 'PRIMARY (buffer-string))
       (when emacs-everywhere-copy-command ; handle clipboard finicklyness
         (let ((inhibit-message t)
               (require-final-newline nil)
