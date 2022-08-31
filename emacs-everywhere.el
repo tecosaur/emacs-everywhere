@@ -127,7 +127,7 @@ when applicable."
 (defcustom emacs-everywhere-init-hooks
   '(emacs-everywhere-set-frame-name
     emacs-everywhere-set-frame-position
-    emacs-everywhere-major-mode-function
+    emacs-everywhere-apply-major-mode
     emacs-everywhere-insert-selection
     emacs-everywhere-remove-trailing-whitespace
     emacs-everywhere-init-spell-check)
@@ -275,6 +275,10 @@ buffers.")
   ;; DEL/C-SPC to clear (first keystroke only)
   (when (keymapp emacs-everywhere-mode-initial-map)
     (set-transient-map emacs-everywhere-mode-initial-map)))
+
+(defun emacs-everywhere-apply-major-mode ()
+  "Call `emacs-everywhere-major-mode-function'."
+  (funcall emacs-everywhere-major-mode-function))
 
 (defun emacs-everywhere-erase-buffer ()
   "Delete the contents of the current buffer."
