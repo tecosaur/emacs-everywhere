@@ -7,7 +7,7 @@
 ;; Created: February 06, 2021
 ;; Modified: February 06, 2021
 ;; Version: 0.1.0
-;; Keywords: conenience, frames
+;; Keywords: convenience, frames
 ;; Homepage: https://github.com/tecosaur/emacs-everywhere
 ;; Package-Requires: ((emacs "26.3"))
 
