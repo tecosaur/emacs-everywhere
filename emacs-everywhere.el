@@ -45,6 +45,9 @@
   (pcase emacs-everywhere--display-server
     ('quartz (list "osascript" "-e" "tell application \"System Events\" to keystroke \"v\" using command down"))
     ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
+    ('windows
+     (list "powershell" "-NoProfile" "-Command"
+           "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
     ((or 'wayland 'unknown)
      (list "notify-send"
            "No paste command defined for emacs-everywhere"
@@ -60,7 +63,9 @@ To not run any command, set to nil."
   (pcase emacs-everywhere--display-server
     ('x11 (list "xclip" "-selection" "clipboard" "%f"))
     ((and 'wayland (guard (executable-find "wl-copy")))
-     (list "sh" "-c" "wl-copy < %f")))
+     (list "sh" "-c" "wl-copy < %f"))
+    ('windows
+     (list "Powershell" "-NoProfile" "-Command" "& { Get-Content %f | clip }")))
   "Command to write to the system clipboard from a file (%f).
 This is given as a list in the form (CMD ARGS...).
 In the arguments, \"%f\" is treated as a placeholder for the path
@@ -77,7 +82,9 @@ it worked can be a good idea."
 (defcustom emacs-everywhere-window-focus-command
   (pcase emacs-everywhere--display-server
     ('quartz (list "osascript" "-e" "tell application \"%w\" to activate"))
-    ('x11 (list "xdotool" "windowactivate" "--sync" "%w")))
+    ('x11 (list "xdotool" "windowactivate" "--sync" "%w"))
+    ('windows (list "powershell" "-NoProfile" "-command"
+                    "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }")))
   "Command to refocus the active window when emacs-everywhere was triggered.
 This is given as a list in the form (CMD ARGS...).
 In the arguments, \"%w\" is treated as a placeholder for the window ID,
@@ -212,28 +219,43 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
 ;;;###autoload
 (defun emacs-everywhere (&optional file line column)
   "Launch the emacs-everywhere frame from emacsclient."
-  (let ((app-info (emacs-everywhere-app-info)))
-    (apply #'call-process "emacsclient" nil 0 nil
-           (delq
-            nil (list
-                 (when (server-running-p)
-                   (if server-use-tcp
-                       (concat "--server-file="
-                               (shell-quote-argument
-                                (expand-file-name server-name server-auth-dir)))
-                     (concat "--socket-name="
-                             (shell-quote-argument
-                              (expand-file-name server-name server-socket-dir)))))
-                 "-c" "-F"
-                 (prin1-to-string
-                  (cons (cons 'emacs-everywhere-app app-info)
-                        emacs-everywhere-frame-parameters))
-                 (cond ((and line column) (format "+%d:%d" line column))
-                       (line              (format "+%d" line)))
-                 (or file
-                     (expand-file-name
-                      (funcall emacs-everywhere-filename-function app-info)
-                      emacs-everywhere-file-dir)))))))
+  (let* ((app-info (emacs-everywhere-app-info))
+         (param (emacs-everywhere-command-param app-info file line column))
+         (param-string (combine-and-quote-strings param)))
+    (pcase system-type
+      ((or 'ms-dos 'windows-nt 'cygwin)
+       (w32-shell-execute "open" "emacsclientw" param-string 1))
+      (_ (apply #'call-process "emacsclient" nil 0 nil param)))))
+
+(defun emacs-everywhere-command-param (app-info &optional file line colomn)
+  "Generate arguments for calling emacsclient."
+  (delq
+   nil (list
+        (when (server-running-p)
+          (if server-use-tcp
+              (concat "--server-file="
+                      (if (memq system-type '(ms-dos windows-nt cygwin))
+                          (expand-file-name server-name server-auth-dir)
+                        (shell-quote-argument
+                         (expand-file-name server-name server-auth-dir))))
+            (concat "--socket-name="
+                    (if (memq system-type '(ms-dos windows-nt cygwin))
+                        (expand-file-name server-name server-auth-dir)
+                      (shell-quote-argument
+                       (expand-file-name server-name server-socket-dir)))
+                    )))
+        "-c" "-F"
+        (prin1-to-string
+         (cons (cons 'emacs-everywhere-app app-info)
+               emacs-everywhere-frame-parameters))
+
+        (cond ((and line column) (format "+%d:%d" line column))
+              (line              (format "+%d" line)))
+
+        (or file
+            (expand-file-name
+             (funcall emacs-everywhere-filename-function app-info)
+             emacs-everywhere-file-dir)))))
 
 (defun emacs-everywhere-file-p (file)
   "Return non-nil if FILE should be handled by emacs-everywhere.
@@ -373,6 +395,8 @@ Never paste content when ABORT is non-nil."
   "Return information on the active window."
   (let ((w (pcase system-type
              (`darwin (emacs-everywhere-app-info-osx))
+             ((or `ms-dos `windows-nt `cygwin)
+              (emacs-everywhere-app-info-windows))
              (_ (emacs-everywhere-app-info-linux)))))
     (setf (emacs-everywhere-app-title w)
           (replace-regexp-in-string
@@ -492,6 +516,35 @@ return windowTitle"))
         (shell-command (format "osacompile -r scpt:128 -t osas -o %s %s"
                                (car script) (concat (car script) ".applescript")))))))
 
+(defun emacs-everywhere-app-info-windows ()
+  "Return information on the active window, on Windows."
+  (let ((window-id (emacs-everywhere-call
+                    "powershell"
+                    "-NoProfile"
+                    "-Command"
+                    "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow(); }'; [tricks]::GetForegroundWindow() }"))
+        (window-title (emacs-everywhere-call
+                       "powershell"
+                       "-NoProfile"
+                       "-Command"
+                       (format "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count); [DllImport(\"user32.dll\")] public static extern int GetWindowTextLength(IntPtr hWnd); }'; $length = ([tricks]::GetWindowTextLength(%s)); $sb = New-Object System.Text.StringBuilder $length; [tricks]::GetWindowText(%s, $sb, $length + 1) > $null; $sb.ToString() }" window-id window-id)))
+        (window-class (emacs-everywhere-call
+                       "powershell"
+                       "-NoProfile"
+                       "-Command"
+                       (format "(Get-Item (Get-Process | ? { $_.mainwindowhandle -eq %s }).Path).VersionInfo.ProductName" window-id)))
+        (window-geometry (split-string
+                          (emacs-everywhere-call
+                           "powershell"
+                           "-NoProfile"
+                           "-Command"
+                           (format "& {Add-Type 'using System; using System.Runtime.InteropServices; public struct tagRECT { public int left; public int top; public int right; public int bottom; } public class Tricks { [DllImport(\"user32.dll\")] public static extern int GetWindowRect(IntPtr hWnd, out tagRECT lpRect); }'; $rect = New-Object -TypeName tagRECT; [tricks]::GetWindowRect(%s, [ref]$rect) > $null; $rect.left; $rect.top; $rect.right - $rect.left; $rect.bottom - $rect.top }" window-id)))))
+    (make-emacs-everywhere-app
+     :id window-id
+     :class window-class
+     :title window-title
+     :geometry window-geometry)))
+
 ;;; Secondary functionality
 
 (defun emacs-everywhere-set-frame-name ()
@@ -516,17 +569,41 @@ return windowTitle"))
                         (- x 100)
                         (- y 50))))
 
+(defun emacs-everywhere-insert-selection--windows ()
+  "Insert selection on MS-Windows by simulating C-c and C-v."
+  (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app))
+        (emacs-window-id (emacs-everywhere-call
+                          "powershell"
+                          "-NoProfile"
+                          "-Command"
+                          "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow(); }'; [tricks]::GetForegroundWindow() }")))
+    (apply #'call-process (car emacs-everywhere-window-focus-command)
+           nil nil nil
+           (mapcar (lambda (arg)
+                     (replace-regexp-in-string "%w" window-id arg))
+                   (cdr emacs-everywhere-window-focus-command)))
+    (apply #'call-process "powershell"
+           nil nil nil '("-NoProfile" "-Command" "& {(New-Object -ComObject wscript.shell).SendKeys('^c')}"))
+    (apply #'call-process (car emacs-everywhere-window-focus-command)
+           nil nil nil
+           (mapcar (lambda (arg)
+                     (replace-regexp-in-string "%w" emacs-window-id arg))
+                   (cdr emacs-everywhere-window-focus-command))))
+  (yank))
+
 (defun emacs-everywhere-insert-selection ()
   "Insert the last text selection into the buffer."
-  (if (eq system-type 'darwin)
-      (progn
-        (call-process "osascript" nil nil nil
-                      "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
-        (sleep-for 0.01) ; lets clipboard info propagate
-        (yank))
-    (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
-      (gui-backend-set-selection 'PRIMARY "")
-      (insert selection)))
+  (pcase system-type
+    ('darwin (progn
+               (call-process "osascript" nil nil nil
+                             "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
+               (sleep-for 0.01)	       ; lets clipboard info propagate
+               (yank)))
+    ((or 'ms-dos 'windows-nt 'cygwin)
+     (emacs-everywhere-insert-selection--windows))
+    (_ (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
+         (gui-backend-set-selection 'PRIMARY "")
+         (insert selection))))
   (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p)
              (executable-find "pandoc"))
