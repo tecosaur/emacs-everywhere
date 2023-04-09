@@ -217,6 +217,7 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
       (_ (apply #'call-process "emacsclient" nil 0 nil param)))))
 
 (defun emacs-everywhere-command-param (app-info &optional file line colomn)
+  "Generate arguments for calling emacsclient."
   (delq
    nil (list
         (when (server-running-p)
@@ -543,6 +544,7 @@ return windowTitle"))
                         (- y 50))))
 
 (defun emacs-everywhere-insert-selection--windows ()
+  "Insert selection on MS-Windows by simulating C-c and C-v."
   (let* ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app))
 	 (emacs-window-id (emacs-everywhere-call
 			   "powershell"
