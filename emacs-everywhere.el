@@ -178,6 +178,11 @@ Set to nil to disable."
   :type '(repeat regexp)
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-clipboard-sleep-delay 0.01
+  "Waiting period to wait to propagate clipboard actions."
+  :type 'number
+  :group 'emacs-everywhere)
+
 (defun emacs-everywhere-temp-filename (app-info)
   "Generate a temp file."
   (concat "emacs-everywhere-"
@@ -357,7 +362,7 @@ Never paste content when ABORT is non-nil."
                  (mapcar (lambda (arg)
                            (replace-regexp-in-string "%f" buffer-file-name arg))
                          (cdr emacs-everywhere-copy-command))))))
-    (sleep-for 0.01) ; prevents weird multi-second pause, lets clipboard info propagate
+    (sleep-for emacs-everywhere-clipboard-sleep-delay) ; prevents weird multi-second pause, lets clipboard info propagate
     (when emacs-everywhere-window-focus-command
       (let* ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app))
              (window-id-str (if (numberp window-id) (number-to-string window-id) window-id)))
@@ -597,7 +602,7 @@ return windowTitle"))
     ('darwin (progn
                (call-process "osascript" nil nil nil
                              "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
-               (sleep-for 0.01)	       ; lets clipboard info propagate
+               (sleep-for emacs-everywhere-clipboard-sleep-delay) ; lets clipboard info propagate
                (yank)))
     ((or 'ms-dos 'windows-nt 'cygwin)
      (emacs-everywhere-insert-selection--windows))
