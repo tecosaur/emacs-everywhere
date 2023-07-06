@@ -269,14 +269,14 @@ This matches FILE against `emacs-everywhere-file-patterns'."
   "Entry point for the executable.
 APP is an `emacs-everywhere-app' struct."
   (let ((file (buffer-file-name (buffer-base-buffer))))
-   (when (and file (emacs-everywhere-file-p file))
-    (let ((app (or (frame-parameter nil 'emacs-everywhere-app)
-                   (emacs-everywhere-app-info))))
-      (setq-local emacs-everywhere-current-app app)
-      (with-demoted-errors "Emacs Everywhere: error running init hooks, %s"
-        (run-hooks 'emacs-everywhere-init-hooks))
-      (emacs-everywhere-mode 1)
-      (setq emacs-everywhere--contents (buffer-string))))))
+    (when (and file (emacs-everywhere-file-p file))
+      (let ((app (or (frame-parameter nil 'emacs-everywhere-app)
+                     (emacs-everywhere-app-info))))
+        (setq-local emacs-everywhere-current-app app)
+        (with-demoted-errors "Emacs Everywhere: error running init hooks, %s"
+          (run-hooks 'emacs-everywhere-init-hooks))
+        (emacs-everywhere-mode 1)
+        (setq emacs-everywhere--contents (buffer-string))))))
 
 ;;;###autoload
 (add-hook 'server-visit-hook #'emacs-everywhere-initialise)
@@ -414,7 +414,7 @@ Never paste content when ABORT is non-nil."
     (when (and (eq system-type 'darwin)
                (string-match-p emacs-everywhere-osascript-accessibility-error-message (buffer-string)))
       (call-process "osascript" nil nil nil
-                        "-e" (format "display alert \"emacs-everywhere\" message \"Emacs has not been granted accessibility permissions, cannot run emacs-everywhere!
+                    "-e" (format "display alert \"emacs-everywhere\" message \"Emacs has not been granted accessibility permissions, cannot run emacs-everywhere!
 Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility' and allow Emacs.\"" ))
       (error "MacOS accessibility error, aborting."))
     (string-trim (buffer-string))))
