@@ -232,7 +232,7 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
        (w32-shell-execute "open" "emacsclientw" param-string 1))
       (_ (apply #'call-process "emacsclient" nil 0 nil param)))))
 
-(defun emacs-everywhere-command-param (app-info &optional file line colomn)
+(defun emacs-everywhere-command-param (app-info &optional file line column)
   "Generate arguments for calling emacsclient."
   (delq
    nil (list
