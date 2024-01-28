@@ -31,6 +31,25 @@
 
 (define-obsolete-variable-alias
   'emacs-everywhere-paste-p 'emacs-everywhere-paste-command "0.1.0")
+(defalias 'emacs-everywhere-call 'emacs-everywhere--call)
+(make-obsolete 'emacs-everywhere-call "Now private API" "0.2.0")
+(define-obsolete-variable-alias
+  'emacs-everywhere-return-converted-org-to-gfm
+  'emacs-everywhere-convert-org-to-gfm "0.2.0")
+(defvaralias 'emacs-everywhere-mode-initial-map 'emacs-everywhere--initial-mode-map)
+(make-obsolete-variable 'emacs-everywhere-mode-initial-map "Now private API" "0.2.0")
+(defalias 'emacs-everywhere-erase-buffer 'emacs-everywhere--erase-buffer)
+(make-obsolete 'emacs-everywhere-erase-buffer "Now private API" "0.2.0")
+(defalias 'emacs-everywhere-finish-or-ctrl-c-ctrl-c 'emacs-everywhere--finish-or-ctrl-c-ctrl-c)
+(make-obsolete 'emacs-everywhere-finish-or-ctrl-c-ctrl-c "Now private API" "0.2.0")
+(defalias 'emacs-everywhere-app-info-linux 'emacs-everywhere--app-info-linux)
+(make-obsolete 'emacs-everywhere-app-info-linux "Now private API" "0.2.0")
+(defalias 'emacs-everywhere-app-info-osx 'emacs-everywhere--app-info-osx)
+(make-obsolete 'emacs-everywhere-app-info-osx "Now private API" "0.2.0")
+(defalias 'emacs-everywhere-app-info-windows 'emacs-everywhere--app-info-windows)
+(make-obsolete 'emacs-everywhere-app-info-windows "Now private API" "0.2.0")
+(defalias 'emacs-everywhere-ensure-oscascript-compiled 'emacs-everywhere--ensure-oscascript-compiled)
+(make-obsolete 'emacs-everywhere-ensure-oscascript-compiled "Now private API" "0.2.0")
 
 (defvar emacs-everywhere--display-server
   (cond
@@ -144,7 +163,7 @@ when applicable."
 
 (defcustom emacs-everywhere-final-hooks
   '(emacs-everywhere-remove-trailing-whitespace
-    emacs-everywhere-return-converted-org-to-gfm)
+    emacs-everywhere-convert-org-to-gfm)
   "Hooks to be run just before content is copied."
   :type 'hook
   :group 'emacs-everywhere)
@@ -287,20 +306,20 @@ APP is an `emacs-everywhere-app' struct."
 (add-hook 'server-visit-hook #'emacs-everywhere-initialise)
 (add-hook 'server-done-hook #'emacs-everywhere-finish)
 
-(defvar emacs-everywhere-mode-initial-map
+(defvar emacs-everywhere--initial-mode-map
   (let ((keymap (make-sparse-keymap)))
-    (define-key keymap (kbd "DEL") #'emacs-everywhere-erase-buffer)
-    (define-key keymap (kbd "C-SPC") #'emacs-everywhere-erase-buffer)
+    (define-key keymap (kbd "DEL") #'emacs-everywhere--erase-buffer)
+    (define-key keymap (kbd "C-SPC") #'emacs-everywhere--erase-buffer)
     keymap)
   "Transient keymap invoked when an emacs-everywhere buffer is first created.
-Set to `nil' to prevent this transient map from activating in emacs-everywhere
+Set to nil to prevent this transient map from activating in emacs-everywhere
 buffers.")
 
 (define-minor-mode emacs-everywhere-mode
   "Tweak the current buffer to add some emacs-everywhere considerations."
   :init-value nil
   :lighter "EE"
-  :keymap `((,(kbd "C-c C-c") . emacs-everywhere-finish-or-ctrl-c-ctrl-c)
+  :keymap `((,(kbd "C-c C-c") . emacs-everywhere--app-info-linux)
             (,(kbd "C-x 5 0") . emacs-everywhere-finish)
             (,(kbd "C-c C-k") . emacs-everywhere-abort))
   (when emacs-everywhere-mode
@@ -308,8 +327,8 @@ buffers.")
     (turn-off-auto-fill)
     (visual-line-mode t)
     ;; DEL/C-SPC to clear (first keystroke only)
-    (when (keymapp emacs-everywhere-mode-initial-map)
-      (set-transient-map emacs-everywhere-mode-initial-map))
+    (when (keymapp emacs-everywhere--initial-mode-map)
+      (set-transient-map emacs-everywhere--initial-mode-map))
     ;; Header line
     (when emacs-everywhere-top-padding
       (setq-local header-line-format "")
@@ -327,12 +346,12 @@ buffers.")
   "Call `emacs-everywhere-major-mode-function'."
   (funcall emacs-everywhere-major-mode-function))
 
-(defun emacs-everywhere-erase-buffer ()
+(defun emacs-everywhere--erase-buffer ()
   "Delete the contents of the current buffer."
   (interactive)
   (delete-region (point-min) (point-max)))
 
-(defun emacs-everywhere-finish-or-ctrl-c-ctrl-c ()
+(defun emacs-everywhere--finish-or-ctrl-c-ctrl-c ()
   "Finish emacs-everywhere session or invoke `org-ctrl-c-ctrl-c' in org-mode."
   (interactive)
   (if (and (eq major-mode 'org-mode)
@@ -399,10 +418,10 @@ Never paste content when ABORT is non-nil."
 (defun emacs-everywhere-app-info ()
   "Return information on the active window."
   (let ((w (pcase system-type
-             (`darwin (emacs-everywhere-app-info-osx))
+             (`darwin (emacs-everywhere--app-info-osx))
              ((or `ms-dos `windows-nt `cygwin)
-              (emacs-everywhere-app-info-windows))
-             (_ (emacs-everywhere-app-info-linux)))))
+              (emacs-everywhere--app-info-windows))
+             (_ (emacs-everywhere--app-info-linux)))))
     (setf (emacs-everywhere-app-title w)
           (replace-regexp-in-string
            (format " ?-[A-Za-z0-9 ]*%s"
@@ -412,7 +431,7 @@ Never paste content when ABORT is non-nil."
             "[^[:ascii:]]+" "-" (emacs-everywhere-app-title w))))
     w))
 
-(defun emacs-everywhere-call (command &rest args)
+(defun emacs-everywhere--call (command &rest args)
   "Execute COMMAND with ARGS synchronously."
   (with-temp-buffer
     (apply #'call-process command nil t nil (remq nil args))
@@ -424,24 +443,24 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
       (error "MacOS accessibility error, aborting."))
     (string-trim (buffer-string))))
 
-(defun emacs-everywhere-app-info-linux ()
+(defun emacs-everywhere--app-info-linux ()
   "Return information on the active window, on linux."
-  (let ((window-id (emacs-everywhere-call "xdotool" "getactivewindow")))
+  (let ((window-id (emacs-everywhere--call "xdotool" "getactivewindow")))
     (let ((app-name
            (car (split-string-and-unquote
                  (string-trim-left
-                  (emacs-everywhere-call "xprop" "-id" window-id "WM_CLASS")
+                  (emacs-everywhere--call "xprop" "-id" window-id "WM_CLASS")
                   "[^ ]+ = \"[^\"]+\", "))))
           (window-title
            (car (split-string-and-unquote
                  (string-trim-left
-                  (emacs-everywhere-call "xprop" "-id" window-id "_NET_WM_NAME")
+                  (emacs-everywhere--call "xprop" "-id" window-id "_NET_WM_NAME")
                   "[^ ]+ = "))))
           (window-geometry
            (let ((info (mapcar (lambda (line)
                                  (split-string line ":" nil "[ \t]+"))
                                (split-string
-                                (emacs-everywhere-call "xwininfo" "-id" window-id) "\n"))))
+                                (emacs-everywhere--call "xwininfo" "-id" window-id) "\n"))))
              (mapcar #'string-to-number
                      (list (cadr (assoc "Absolute upper-left X" info))
                            (cadr (assoc "Absolute upper-left Y" info))
@@ -465,17 +484,17 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
 
 (defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
-(defun emacs-everywhere-app-info-osx ()
+(defun emacs-everywhere--app-info-osx ()
   "Return information on the active window, on osx."
-  (emacs-everywhere-ensure-oscascript-compiled)
+  (emacs-everywhere--ensure-oscascript-compiled)
   (let ((default-directory emacs-everywhere--dir))
-    (let ((app-name (emacs-everywhere-call
+    (let ((app-name (emacs-everywhere--call
                      "osascript" "app-name"))
-          (window-title (emacs-everywhere-call
+          (window-title (emacs-everywhere--call
                          "osascript" "window-title"))
           (window-geometry (mapcar #'string-to-number
                                    (split-string
-                                    (emacs-everywhere-call
+                                    (emacs-everywhere--call
                                      "osascript" "window-geometry") ", "))))
       (make-emacs-everywhere-app
        :id app-name
@@ -483,7 +502,7 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
        :title window-title
        :geometry window-geometry))))
 
-(defun emacs-everywhere-ensure-oscascript-compiled (&optional force)
+(defun emacs-everywhere--ensure-oscascript-compiled (&optional force)
   "Ensure that compiled oscascript files are present.
 Will always compile when FORCE is non-nil."
   (unless (and (file-exists-p "app-name")
@@ -521,25 +540,25 @@ return windowTitle"))
         (shell-command (format "osacompile -r scpt:128 -t osas -o %s %s"
                                (car script) (concat (car script) ".applescript")))))))
 
-(defun emacs-everywhere-app-info-windows ()
+(defun emacs-everywhere--app-info-windows ()
   "Return information on the active window, on Windows."
-  (let ((window-id (emacs-everywhere-call
+  (let ((window-id (emacs-everywhere--call
                     "powershell"
                     "-NoProfile"
                     "-Command"
                     "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow(); }'; [tricks]::GetForegroundWindow() }"))
-        (window-title (emacs-everywhere-call
+        (window-title (emacs-everywhere--call
                        "powershell"
                        "-NoProfile"
                        "-Command"
                        (format "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count); [DllImport(\"user32.dll\")] public static extern int GetWindowTextLength(IntPtr hWnd); }'; $length = ([tricks]::GetWindowTextLength(%s)); $sb = New-Object System.Text.StringBuilder $length; [tricks]::GetWindowText(%s, $sb, $length + 1) > $null; $sb.ToString() }" window-id window-id)))
-        (window-class (emacs-everywhere-call
+        (window-class (emacs-everywhere--call
                        "powershell"
                        "-NoProfile"
                        "-Command"
                        (format "(Get-Item (Get-Process | ? { $_.mainwindowhandle -eq %s }).Path).VersionInfo.ProductName" window-id)))
         (window-geometry (split-string
-                          (emacs-everywhere-call
+                          (emacs-everywhere--call
                            "powershell"
                            "-NoProfile"
                            "-Command"
@@ -577,7 +596,7 @@ return windowTitle"))
 (defun emacs-everywhere-insert-selection--windows ()
   "Insert selection on MS-Windows by simulating C-c and C-v."
   (let ((window-id (emacs-everywhere-app-id emacs-everywhere-current-app))
-        (emacs-window-id (emacs-everywhere-call
+        (emacs-window-id (emacs-everywhere--call
                           "powershell"
                           "-NoProfile"
                           "-Command"
@@ -651,7 +670,7 @@ Should end in a newline to avoid interfering with the buffer content."
   :group 'emacs-everywhere)
 
 (defvar org-export-show-temporary-export-buffer)
-(defun emacs-everywhere-return-converted-org-to-gfm ()
+(defun emacs-everywhere-convert-org-to-gfm ()
   "When appropriate, convert org buffer to markdown."
   (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p))
