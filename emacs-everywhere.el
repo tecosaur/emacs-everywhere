@@ -661,5 +661,45 @@ Should end in a newline to avoid interfering with the buffer content."
       (require 'ox-md)
       (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) (current-buffer)))))
 
+(defun emacs-everywhere-check-health ()
+  "Check whether emacs-everywhere has everything it needs."
+  (interactive)
+  (switch-to-buffer
+   (get-buffer-create "*Emacs Everywhere health check*"))
+  (read-only-mode 1)
+  (with-silent-modifications
+    (erase-buffer)
+    (let ((feat-cmds
+           (list (cons "paste" emacs-everywhere-paste-command)
+                 (cons "copy" emacs-everywhere-copy-command)
+                 (cons "focus window" emacs-everywhere-window-focus-command)
+                 (list "pandoc conversion" "pandoc")
+                 (and (memq emacs-everywhere--display-server '(x11 wayland))
+                      (list "app info" "xdotool"))
+                 (and (memq emacs-everywhere--display-server '(x11 wayland))
+                      (list "app info" "xprop"))
+                 (and (memq emacs-everywhere--display-server '(x11 wayland))
+                      (list "app info" "xwininfo")))))
+      (insert (propertize "Emacs Everywhere system health check\n" 'face 'outline-1)
+              "operating system: " (propertize (symbol-name system-type) 'face 'font-lock-type-face)
+              ", display server: " (propertize (symbol-name emacs-everywhere--display-server) 'face 'font-lock-type-face)
+              "\n")
+      (dolist (feat-cmd (delq nil feat-cmds))
+        (if (not (cdr feat-cmd))
+            (insert
+             (propertize (format "• %s (unavailible)\n" (car feat-cmd)) 'face 'font-lock-comment-face))
+          (when (and (equal (cadr feat-cmd) "sh")
+                     (equal (caddr feat-cmd) "-c"))
+            (setcdr feat-cmd (split-string (cadddr feat-cmd))))
+          (insert
+           (propertize (format "• %s " (car feat-cmd))
+                       'face `(:inherit outline-4 :height ,(face-attribute 'default :height)))
+           "requires "
+           (propertize (cadr feat-cmd) 'face 'font-lock-constant-face)
+           (if (executable-find (cadr feat-cmd))
+               (propertize " ✓ installed" 'face 'success)
+             (propertize " ✗ missing" 'face 'error))
+           "\n"))))))
+
 (provide 'emacs-everywhere)
 ;;; emacs-everywhere.el ends here
