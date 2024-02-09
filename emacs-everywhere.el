@@ -202,7 +202,7 @@ Set to nil to disable."
   :type 'number
   :group 'emacs-everywhere)
 
-(defcustom emacs-everywhere-pandoc-args "-f markdown-auto_identifiers -t org"
+(defcustom emacs-everywhere-pandoc-args "-f markdown-auto_identifiers"
   "Arguments passed to pandoc to convert org into md."
   :type 'string
   :group 'emacs-everywhere)
@@ -637,7 +637,7 @@ return windowTitle"))
              (emacs-everywhere-markdown-p)
              (executable-find "pandoc"))
     (shell-command-on-region (point-min) (point-max)
-                             (format "pandoc %s" emacs-everywhere-pandoc-args) nil t)
+                             (format "pandoc %s -t org" emacs-everywhere-pandoc-args) nil t)
     (deactivate-mark) (goto-char (point-max)))
   (cond ((bound-and-true-p evil-local-mode) (evil-insert-state))))
 
