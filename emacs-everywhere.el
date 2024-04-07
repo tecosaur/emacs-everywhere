@@ -319,7 +319,7 @@ buffers.")
   "Tweak the current buffer to add some emacs-everywhere considerations."
   :init-value nil
   :lighter "EE"
-  :keymap `((,(kbd "C-c C-c") . emacs-everywhere--app-info-linux)
+  :keymap `((,(kbd "C-c C-c") . emacs-everywhere--finish-or-ctrl-c-ctrl-c)
             (,(kbd "C-x 5 0") . emacs-everywhere-finish)
             (,(kbd "C-c C-k") . emacs-everywhere-abort))
   (when emacs-everywhere-mode
