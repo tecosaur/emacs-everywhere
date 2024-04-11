@@ -53,21 +53,24 @@
 
 (defvar emacs-everywhere--display-server
   (cond
-   ((eq system-type 'darwin) 'quartz)
-   ((memq system-type '(ms-dos windows-nt cygwin)) 'windows)
+   ((eq system-type 'darwin) '(quartz . nil))
+   ((memq system-type '(ms-dos windows-nt cygwin)) '(windows . nil))
    ((eq system-type 'gnu/linux)
-    (if (getenv "WAYLAND_DISPLAY") 'wayland 'x11))
-   (t 'unknown))
+    (cons
+     (if (getenv "WAYLAND_DISPLAY") 'wayland 'x11)
+     (intern (or (getenv "XDG_CURRENT_DESKTOP") "unknown"))))
+   (t '(unknown . nil)))
   "The detected display server.")
 
 (defcustom emacs-everywhere-paste-command
-  (pcase emacs-everywhere--display-server
+  (pcase (car emacs-everywhere--display-server)
     ('quartz (list "osascript" "-e" "tell application \"System Events\" to keystroke \"v\" using command down"))
-    ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
     ('windows
      (list "powershell" "-NoProfile" "-Command"
            "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
-    ((or 'wayland 'unknown)
+    ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
+    ('wayland (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
+    ('unknown
      (list "notify-send"
            "No paste command defined for emacs-everywhere"
            "-a" "Emacs" "-i" "emacs")))
@@ -79,9 +82,9 @@ To not run any command, set to nil."
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-copy-command
-  (pcase emacs-everywhere--display-server
+  (pcase (car emacs-everywhere--display-server)
     ('x11 (list "xclip" "-selection" "clipboard" "%f"))
-    ((and 'wayland (guard (executable-find "wl-copy")))
+    ('wayland
      (list "sh" "-c" "wl-copy < %f"))
     ('windows
      (list "Powershell" "-NoProfile" "-Command" "& { Get-Content %f | clip }")))
@@ -100,10 +103,11 @@ it worked can be a good idea."
 
 (defcustom emacs-everywhere-window-focus-command
   (pcase emacs-everywhere--display-server
-    ('quartz (list "osascript" "-e" "tell application \"%w\" to activate"))
-    ('x11 (list "xdotool" "windowactivate" "--sync" "%w"))
-    ('windows (list "powershell" "-NoProfile" "-command"
-                    "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }")))
+    (`(quartz . ,_) (list "osascript" "-e" "tell application \"%w\" to activate"))
+    (`(windows . ,_) (list "powershell" "-NoProfile" "-command"
+                           "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }"))
+    (`(x11 . ,_) (list "xdotool" "windowactivate" "--sync" "%w"))
+    (`(wayland . KDE) (list "kdotool" "windowactivate" "%w"))) ; No --sync
   "Command to refocus the active window when emacs-everywhere was triggered.
 This is given as a list in the form (CMD ARGS...).
 In the arguments, \"%w\" is treated as a placeholder for the window ID,
@@ -451,6 +455,27 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
 
 (defun emacs-everywhere--app-info-linux ()
   "Return information on the active window, on linux."
+  (pcase-let ((`(,window-id ,app-name ,window-title ,window-geometry))
+              (pcase emacs-everywhere--display-server
+                (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
+                (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
+                (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server))))
+    (make-emacs-everywhere-app
+     :id (string-to-number window-id)
+     :class app-name
+     :title window-title
+     :geometry (list
+                (if (= (nth 0 window-geometry) (nth 2 window-geometry))
+                    (nth 0 window-geometry)
+                  (- (nth 0 window-geometry) (nth 2 window-geometry)))
+                (if (= (nth 1 window-geometry) (nth 3 window-geometry))
+                    (nth 1 window-geometry)
+                  (- (nth 1 window-geometry) (nth 3 window-geometry)))
+                (nth 4 window-geometry)
+                (nth 5 window-geometry)))))
+
+(defun emacs-everywhere--app-info-linux-x11 ()
+  "Return information on the current active window, on a Linux X11 sessions."
   (let ((window-id (emacs-everywhere--call "xdotool" "getactivewindow")))
     (let ((app-name
            (car (split-string-and-unquote
@@ -474,19 +499,28 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
                            (cadr (assoc "Relative upper-left Y" info))
                            (cadr (assoc "Width" info))
                            (cadr (assoc "Height" info)))))))
-      (make-emacs-everywhere-app
-       :id (string-to-number window-id)
-       :class app-name
-       :title window-title
-       :geometry (list
-                  (if (= (nth 0 window-geometry) (nth 2 window-geometry))
-                      (nth 0 window-geometry)
-                    (- (nth 0 window-geometry) (nth 2 window-geometry)))
-                  (if (= (nth 1 window-geometry) (nth 3 window-geometry))
-                      (nth 1 window-geometry)
-                    (- (nth 1 window-geometry) (nth 3 window-geometry)))
-                  (nth 4 window-geometry)
-                  (nth 5 window-geometry))))))
+      (list window-id app-name window-title window-geometry))))
+
+(defun emacs-everywhere--app-info-linux-kde ()
+  "Return information on the current active window, on a Linux KDE sessions."
+  (let ((window-id (emacs-everywhere--call "kdotool" "getactivewindow")))
+    (let ((app-name
+           (car (last (split-string (emacs-everywhere--call "kdotool" "getwindowclassname" window-id) "\\."))))
+          (window-title
+           (emacs-everywhere--call "kdotool" "getwindowname" window-id))
+          (window-geometry
+           (let ((geom (mapcar
+                        (lambda (line) (split-string line "[:,x] ?"))
+                        (split-string (string-trim-left
+                                       (emacs-everywhere--call "kdotool" "getwindowgeometry" window-id) "[^P]+")
+                                      "\n" nil " +"))))
+             (mapcar #'string-to-number
+                     (list (cadr (assoc "Position" geom))
+                           (caddr (assoc "Position" geom))
+                           "0" "0"
+                           (cadr (assoc "Geometry" geom))
+                           (caddr (assoc "Geometry" geom)))))))
+      (list window-id app-name window-title window-geometry))))
 
 (defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
@@ -688,6 +722,33 @@ Should end in a newline to avoid interfering with the buffer content."
       (require 'ox-md)
       (org-export-to-buffer (if (featurep 'ox-gfm) 'gfm 'md) (current-buffer)))))
 
+(defun emacs-everywhere--required-executables ()
+  "Return a list of cons cells, each giving a required executable and its purpose."
+  (let* ((var-cmds
+          (list (cons "paste" emacs-everywhere-paste-command)
+                (cons "copy" emacs-everywhere-copy-command)
+                (cons "focus window" emacs-everywhere-window-focus-command)
+                (list "pandoc conversion" "pandoc")))
+         (de-cmds
+          (pcase emacs-everywhere--display-server
+            (`(x11 . ,_)
+             (list (list "app info" "xdotool")
+                   (list "app info" "xprop")
+                   (list "app info" "xwininfo")))
+            (`(wayland . KDE)
+             (list (list "app info" "kdotool")))))
+         (feat-cmds
+          (append var-cmds de-cmds))
+         executable-list)
+      (dolist (feat-cmd (delq nil feat-cmds))
+        (when (cdr feat-cmd)
+          (when (and (equal (cadr feat-cmd) "sh")
+                     (equal (caddr feat-cmd) "-c"))
+            (setcdr feat-cmd (split-string (cadddr feat-cmd))))
+          (push (cons (cadr feat-cmd) (car feat-cmd))
+                executable-list)))
+      executable-list))
+
 (defun emacs-everywhere-check-health ()
   "Check whether emacs-everywhere has everything it needs."
   (interactive)
@@ -696,34 +757,24 @@ Should end in a newline to avoid interfering with the buffer content."
   (read-only-mode 1)
   (with-silent-modifications
     (erase-buffer)
-    (let ((feat-cmds
-           (list (cons "paste" emacs-everywhere-paste-command)
-                 (cons "copy" emacs-everywhere-copy-command)
-                 (cons "focus window" emacs-everywhere-window-focus-command)
-                 (list "pandoc conversion" "pandoc")
-                 (and (memq emacs-everywhere--display-server '(x11 wayland))
-                      (list "app info" "xdotool"))
-                 (and (memq emacs-everywhere--display-server '(x11 wayland))
-                      (list "app info" "xprop"))
-                 (and (memq emacs-everywhere--display-server '(x11 wayland))
-                      (list "app info" "xwininfo")))))
+    (let ((required-cmds
+           (emacs-everywhere--required-executables)))
       (insert (propertize "Emacs Everywhere system health check\n" 'face 'outline-1)
               "operating system: " (propertize (symbol-name system-type) 'face 'font-lock-type-face)
-              ", display server: " (propertize (symbol-name emacs-everywhere--display-server) 'face 'font-lock-type-face)
+              ", display server: " (propertize (symbol-name (car emacs-everywhere--display-server)) 'face 'font-lock-type-face)
+              (and (cdr emacs-everywhere--display-server)
+                   (concat "/" (propertize (symbol-name (cdr emacs-everywhere--display-server)) 'face 'font-lock-type-face)))
               "\n")
-      (dolist (feat-cmd (delq nil feat-cmds))
-        (if (not (cdr feat-cmd))
+      (dolist (req-cmd required-cmds)
+        (if (not (cdr req-cmd))
             (insert
-             (propertize (format "• %s (unavailible)\n" (car feat-cmd)) 'face 'font-lock-comment-face))
-          (when (and (equal (cadr feat-cmd) "sh")
-                     (equal (caddr feat-cmd) "-c"))
-            (setcdr feat-cmd (split-string (cadddr feat-cmd))))
+             (propertize (format "• %s (unavailible)\n" (cdr req-cmd)) 'face 'font-lock-comment-face))
           (insert
-           (propertize (format "• %s " (car feat-cmd))
+           (propertize (format "• %s " (cdr req-cmd))
                        'face `(:inherit outline-4 :height ,(face-attribute 'default :height)))
            "requires "
-           (propertize (cadr feat-cmd) 'face 'font-lock-constant-face)
-           (if (executable-find (cadr feat-cmd))
+           (propertize (car req-cmd) 'face 'font-lock-constant-face)
+           (if (executable-find (car req-cmd))
                (propertize " ✓ installed" 'face 'success)
              (propertize " ✗ missing" 'face 'error))
            "\n"))))))
