@@ -64,10 +64,11 @@
   (pcase emacs-everywhere--display-server
     ('quartz (list "osascript" "-e" "tell application \"System Events\" to keystroke \"v\" using command down"))
     ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
+    ('wayland (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
     ('windows
      (list "powershell" "-NoProfile" "-Command"
            "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
-    ((or 'wayland 'unknown)
+    ((or 'unknown)
      (list "notify-send"
            "No paste command defined for emacs-everywhere"
            "-a" "Emacs" "-i" "emacs")))
@@ -102,6 +103,7 @@ it worked can be a good idea."
   (pcase emacs-everywhere--display-server
     ('quartz (list "osascript" "-e" "tell application \"%w\" to activate"))
     ('x11 (list "xdotool" "windowactivate" "--sync" "%w"))
+    ('wayland (list "kdotool" "windowactivate" "%w")) ; No --sync
     ('windows (list "powershell" "-NoProfile" "-command"
                     "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }")))
   "Command to refocus the active window when emacs-everywhere was triggered.
@@ -195,12 +197,6 @@ Set to nil to disable."
           (concat "^" (regexp-quote (file-truename "qutebrowser-editor-")))))
   "A list of file regexps to activate `emacs-everywhere-mode' for."
   :type '(repeat regexp)
-  :group 'emacs-everywhere)
-
-(defcustom emacs-everywhere-pandoc-md-args
-  '("-f" "markdown-auto_identifiers" "-t" "org")
-  "Arguments supplied to pandoc when converting text from Markdown to Org."
-  :type '(repeat string)
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-clipboard-sleep-delay 0.01
@@ -325,6 +321,7 @@ buffers.")
   "Tweak the current buffer to add some emacs-everywhere considerations."
   :init-value nil
   :lighter "EE"
+  ;; :keymap `((,(kbd "C-c C-c") . emacs-everywhere--app-info-linux)
   :keymap `((,(kbd "C-c C-c") . emacs-everywhere--finish-or-ctrl-c-ctrl-c)
             (,(kbd "C-x 5 0") . emacs-everywhere-finish)
             (,(kbd "C-c C-k") . emacs-everywhere-abort))
@@ -451,31 +448,42 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
 
 (defun emacs-everywhere--app-info-linux ()
   "Return information on the active window, on linux."
-  (let ((window-id (emacs-everywhere--call "xdotool" "getactivewindow")))
+  (interactive)
+  (let ((window-id (pcase emacs-everywhere--display-server
+            ('x11 (emacs-everywhere--call "xdotool" "getactivewindow"))
+            ('wayland (emacs-everywhere--call "kdotool" "getactivewindow")))))
     (let ((app-name
-           (car (split-string-and-unquote
+           (pcase emacs-everywhere--display-server
+	     ('x11 (car (split-string-and-unquote
                  (string-trim-left
-                  (emacs-everywhere--call "xprop" "-id" window-id "WM_CLASS")
-                  "[^ ]+ = \"[^\"]+\", "))))
+                   (emacs-everywhere--call "xprop" "-id" window-id "WM_CLASS"))
+				       "[^ ]+ = \"[^\"]+\", ")))
+	     ('wayland (car (last (split-string (emacs-everywhere--call "kdotool" "getwindowclassname" window-id) "\\."))))))
           (window-title
-           (car (split-string-and-unquote
+           (pcase emacs-everywhere--display-server
+	     ('x11 (car (split-string-and-unquote
                  (string-trim-left
-                  (emacs-everywhere--call "xprop" "-id" window-id "_NET_WM_NAME")
-                  "[^ ]+ = "))))
+                  (emacs-everywhere--call "xprop" "-id" window-id "_NET_WM_NAME"))
+                   "[^ ]+ = ")))
+	      ('wayland (emacs-everywhere--call "kdotool" "getwindowname" window-id))))
           (window-geometry
-           (let ((info (mapcar (lambda (line)
+           (pcase emacs-everywhere--display-server
+	     ('x11 (let ((info (mapcar (lambda (line)
                                  (split-string line ":" nil "[ \t]+"))
                                (split-string
                                 (emacs-everywhere--call "xwininfo" "-id" window-id) "\n"))))
-             (mapcar #'string-to-number
+               (mapcar #'string-to-number
                      (list (cadr (assoc "Absolute upper-left X" info))
                            (cadr (assoc "Absolute upper-left Y" info))
                            (cadr (assoc "Relative upper-left X" info))
                            (cadr (assoc "Relative upper-left Y" info))
                            (cadr (assoc "Width" info))
-                           (cadr (assoc "Height" info)))))))
+                           (cadr (assoc "Height" info))))))
+	     ('wayland (let ((info (mapcar (lambda (line) (split-string line ":" nil " "))
+					(split-string (cadr (split-string (emacs-everywhere--call "kdotool" "getwindowgeometry" window-id) "}\n  ")) "\n"))))
+			 (mapcar #'string-to-number (apply 'cl-concatenate 'list (list (split-string (cadr (assoc "Position" info)) ",") '("0" "0") (split-string (cadr (assoc " Geometry" info)) "x")))))))))
       (make-emacs-everywhere-app
-       :id (string-to-number window-id)
+       :id window-id
        :class app-name
        :title window-title
        :geometry (list
@@ -637,10 +645,8 @@ return windowTitle"))
   (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p)
              (executable-find "pandoc"))
-    (apply #'call-process-region
-           (point-min) (point-max) "pandoc"
-           nil nil nil
-           emacs-everywhere-pandoc-md-args)
+    (shell-command-on-region (point-min) (point-max)
+                             "pandoc -f markdown-auto_identifiers -t org" nil t)
     (deactivate-mark) (goto-char (point-max)))
   (cond ((bound-and-true-p evil-local-mode) (evil-insert-state))))
 
@@ -701,7 +707,7 @@ Should end in a newline to avoid interfering with the buffer content."
                  (cons "copy" emacs-everywhere-copy-command)
                  (cons "focus window" emacs-everywhere-window-focus-command)
                  (list "pandoc conversion" "pandoc")
-                 (and (memq emacs-everywhere--display-server '(x11 wayland))
+                 (and (memq emacs-everywhere--display-server '(x11 wayland)) ;should update this later
                       (list "app info" "xdotool"))
                  (and (memq emacs-everywhere--display-server '(x11 wayland))
                       (list "app info" "xprop"))
