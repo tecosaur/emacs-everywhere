@@ -42,7 +42,7 @@ new buffer. To clear this, type =DEL= or =C-SPC= /before anything else/.
 
 Once you've finished and want to insert the text into the window you triggered
 Emacs Everywhere from, just press =C-c C-c= or =C-x 5 0= to close the frame and
-paste the content into the window (as long as ~emacs-everywhere-paste-p~ is
+paste the content into the window (as long as ~emacs-everywhere-paste-command~ is
 non-nil).
 
 If you do /not/ wish to paste the buffer content into the original window, =C-c
