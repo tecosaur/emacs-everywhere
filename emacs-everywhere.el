@@ -197,6 +197,12 @@ Set to nil to disable."
   :type '(repeat regexp)
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-pandoc-md-args
+  '("-f" "markdown-auto_identifiers" "-t" "org")
+  "Arguments supplied to pandoc when converting text from Markdown to Org."
+  :type '(repeat string)
+  :group 'emacs-everywhere)
+
 (defcustom emacs-everywhere-clipboard-sleep-delay 0.01
   "Waiting period to wait to propagate clipboard actions."
   :type 'number
@@ -631,8 +637,10 @@ return windowTitle"))
   (when (and (eq major-mode 'org-mode)
              (emacs-everywhere-markdown-p)
              (executable-find "pandoc"))
-    (shell-command-on-region (point-min) (point-max)
-                             "pandoc -f markdown-auto_identifiers -t org" nil t)
+    (apply #'call-process-region
+           (point-min) (point-max) "pandoc"
+           nil nil nil
+           emacs-everywhere-pandoc-md-args)
     (deactivate-mark) (goto-char (point-max)))
   (cond ((bound-and-true-p evil-local-mode) (evil-insert-state))))
 
