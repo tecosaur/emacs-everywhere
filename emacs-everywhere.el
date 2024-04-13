@@ -166,14 +166,15 @@ when applicable."
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-final-hooks
-  '(emacs-everywhere-remove-trailing-whitespace
-    emacs-everywhere-convert-org-to-gfm)
+  '(emacs-everywhere-convert-org-to-gfm
+    emacs-everywhere-remove-trailing-whitespace)
   "Hooks to be run just before content is copied."
   :type 'hook
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-frame-parameters
   `((name . "emacs-everywhere")
+    (fullscreen . nil)                  ; for GNOME at least
     (width . 80)
     (height . 12))
   "Parameters `make-frame' recognises to apply to the emacs-everywhere frame."
