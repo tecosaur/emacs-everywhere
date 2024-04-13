@@ -455,11 +455,11 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
 
 (defun emacs-everywhere--app-info-linux ()
   "Return information on the active window, on linux."
-  (pcase-let ((`(,window-id ,app-name ,window-title ,window-geometry))
-              (pcase emacs-everywhere--display-server
-                (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
-                (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
-                (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server))))
+  (pcase-let ((`(,window-id ,app-name ,window-title ,window-geometry)
+               (pcase emacs-everywhere--display-server
+                 (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
+                 (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
+                 (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server)))))
     (make-emacs-everywhere-app
      :id (string-to-number window-id)
      :class app-name
