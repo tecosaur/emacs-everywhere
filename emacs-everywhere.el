@@ -174,6 +174,7 @@ when applicable."
 
 (defcustom emacs-everywhere-frame-parameters
   `((name . "emacs-everywhere")
+    (fullscreen . nil) ; Helps on GNOME at least
     (width . 80)
     (height . 12))
   "Parameters `make-frame' recognises to apply to the emacs-everywhere frame."
