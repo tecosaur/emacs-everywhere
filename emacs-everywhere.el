@@ -166,8 +166,8 @@ when applicable."
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-final-hooks
-  '(emacs-everywhere-remove-trailing-whitespace
-    emacs-everywhere-convert-org-to-gfm)
+  '(emacs-everywhere-convert-org-to-gfm
+    emacs-everywhere-remove-trailing-whitespace)
   "Hooks to be run just before content is copied."
   :type 'hook
   :group 'emacs-everywhere)
