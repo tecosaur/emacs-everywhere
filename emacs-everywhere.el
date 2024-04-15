@@ -69,7 +69,7 @@
      (list "powershell" "-NoProfile" "-Command"
            "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
     ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
-    ('wayland (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
+    ('wayland (list "wtype" "-M" "shift" "-k" "insert"))
     ('unknown
      (list "notify-send"
            "No paste command defined for emacs-everywhere"
@@ -85,7 +85,7 @@ To not run any command, set to nil."
   (pcase (car emacs-everywhere--display-server)
     ('x11 (list "xclip" "-selection" "clipboard" "%f"))
     ('wayland
-     (list "sh" "-c" "wl-copy < %f"))
+     (list "sh" "-c" "wl-copy -p < %f"))
     ('windows
      (list "Powershell" "-NoProfile" "-Command" "& { Get-Content %f | clip }")))
   "Command to write to the system clipboard from a file (%f).
