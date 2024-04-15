@@ -23,6 +23,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'json)
 (require 'server)
 
 (defgroup emacs-everywhere ()
@@ -107,7 +108,8 @@ it worked can be a good idea."
     (`(windows . ,_) (list "powershell" "-NoProfile" "-command"
                            "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }"))
     (`(x11 . ,_) (list "xdotool" "windowactivate" "--sync" "%w"))
-    (`(wayland . KDE) (list "kdotool" "windowactivate" "%w"))) ; No --sync
+    (`(wayland . KDE) (list "kdotool" "windowactivate" "%w")) ; No --sync
+    (`(wayland . Hyprland) (list "hyprctl" "dispatch" "focuswindow" "address:%w")))
   "Command to refocus the active window when emacs-everywhere was triggered.
 This is given as a list in the form (CMD ARGS...).
 In the arguments, \"%w\" is treated as a placeholder for the window ID,
@@ -232,7 +234,8 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
     (`(quartz . ,_) #'emacs-everywhere--app-info-osx)
     (`(windows . ,_) #'emacs-everywhere--app-info-windows)
     (`(x11 . ,_) #'emacs-everywhere--app-info-linux-x11)
-    (`(wayland . KDE) #'emacs-everywhere--app-info-linux-kde))
+    (`(wayland . KDE) #'emacs-everywhere--app-info-linux-kde)
+    (`(wayland . Hyprland) #'emacs-everywhere--app-info-linux-hyprland))
   "Function that asks the system for information on the current foreground app.
 On most systems, this should be set to a sensible default, but it
 may not be set on less common configurations. If unset, a custom
@@ -474,6 +477,7 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
   (pcase emacs-everywhere--display-server
     (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
     (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
+    (`(wayland . Hyprland) (emacs-everywhere--app-info-linux-hyprland))
     (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server))))
 
 (defun emacs-everywhere--app-info-linux-x11 ()
@@ -540,6 +544,23 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
        :class app-name
        :title window-title
        :geometry window-geometry))))
+
+(defun emacs-everywhere--app-info-linux-hyprland ()
+  "Return information on the current active window, on a Linux Hyprland session."
+  (let* ((json-string (emacs-everywhere--call "hyprctl" "-j" "activewindow"))
+         (json-object (json-read-from-string json-string))
+         (window-id (cdr (assoc 'address json-object)))
+         (app-name (cdr (assoc 'class json-object)))
+         (window-title (cdr (assoc 'title json-object)))
+         (window-geometry (list (aref (cdr (assoc 'at json-object)) 0)
+                                (aref (cdr (assoc 'at json-object)) 1)
+                                (aref (cdr (assoc 'size json-object)) 0)
+                                (aref (cdr (assoc 'size json-object)) 1))))
+    (make-emacs-everywhere-app
+     :id window-id
+     :class app-name
+     :title window-title
+     :geometry window-geometry)))
 
 (defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
@@ -755,18 +776,20 @@ Should end in a newline to avoid interfering with the buffer content."
                    (list "app info" "xprop")
                    (list "app info" "xwininfo")))
             (`(wayland . KDE)
-             (list (list "app info" "kdotool")))))
+             (list (list "app info" "kdotool")))
+            (`(wayland . Hyprland)
+             (list (list "app info" "hyprctl")))))
          (feat-cmds
           (append var-cmds de-cmds))
          executable-list)
-      (dolist (feat-cmd (delq nil feat-cmds))
-        (when (cdr feat-cmd)
-          (when (and (equal (cadr feat-cmd) "sh")
-                     (equal (caddr feat-cmd) "-c"))
-            (setcdr feat-cmd (split-string (cadddr feat-cmd))))
-          (push (cons (cadr feat-cmd) (car feat-cmd))
-                executable-list)))
-      executable-list))
+    (dolist (feat-cmd (delq nil feat-cmds))
+      (when (cdr feat-cmd)
+        (when (and (equal (cadr feat-cmd) "sh")
+                   (equal (caddr feat-cmd) "-c"))
+          (setcdr feat-cmd (split-string (cadddr feat-cmd))))
+        (push (cons (cadr feat-cmd) (car feat-cmd))
+              executable-list)))
+    executable-list))
 
 (defun emacs-everywhere-check-health ()
   "Check whether emacs-everywhere has everything it needs."
