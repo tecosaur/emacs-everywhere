@@ -227,6 +227,20 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
   :type 'function
   :group 'emacs-everywhere)
 
+(defcustom emacs-everywhere-app-info-function
+  (pcase emacs-everywhere--display-server
+    (`(quartz . ,_) #'emacs-everywhere--app-info-osx)
+    (`(windows . ,_) #'emacs-everywhere--app-info-windows)
+    (`(x11 . ,_) #'emacs-everywhere--app-info-linux-x11)
+    (`(wayland . KDE) #'emacs-everywhere--app-info-linux-kde))
+  "Function that asks the system for information on the current foreground app.
+On most systems, this should be set to a sensible default, but it
+may not be set on less common configurations. If unset, a custom
+app-info function can be used — see the various
+emacs-everywhere--app-info-* functions for reference."
+  :type 'function
+  :group 'emacs-everywhere)
+
 ;; Semi-internal variables
 
 (defconst emacs-everywhere-osascript-accessibility-error-message
@@ -429,20 +443,19 @@ Never paste content when ABORT is non-nil."
   id class title geometry)
 
 (defun emacs-everywhere-app-info ()
-  "Return information on the active window."
-  (let ((w (pcase system-type
-             (`darwin (emacs-everywhere--app-info-osx))
-             ((or `ms-dos `windows-nt `cygwin)
-              (emacs-everywhere--app-info-windows))
-             (_ (emacs-everywhere--app-info-linux)))))
-    (setf (emacs-everywhere-app-title w)
-          (replace-regexp-in-string
-           (format " ?-[A-Za-z0-9 ]*%s"
-                   (regexp-quote (emacs-everywhere-app-class w)))
-           ""
-           (replace-regexp-in-string
-            "[^[:ascii:]]+" "-" (emacs-everywhere-app-title w))))
-    w))
+  "Return information on the active window.
+This runs `emacs-everywhere-app-info-function' and lightly reformats the app title."
+  (if (functionp emacs-everywhere-app-info-function)
+      (let ((w (funcall emacs-everywhere-app-info-function)))
+        (setf (emacs-everywhere-app-title w)
+              (replace-regexp-in-string
+               (format " ?-[A-Za-z0-9 ]*%s"
+                       (regexp-quote (emacs-everywhere-app-class w)))
+               ""
+               (replace-regexp-in-string
+                "[^[:ascii:]]+" "-" (emacs-everywhere-app-title w))))
+        w)
+    (user-error "No app-info function is set, see `emacs-everywhere-app-info-function'")))
 
 (defun emacs-everywhere--call (command &rest args)
   "Execute COMMAND with ARGS synchronously."
