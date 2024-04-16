@@ -457,25 +457,11 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
     (string-trim (buffer-string))))
 
 (defun emacs-everywhere--app-info-linux ()
-  "Return information on the active window, on linux."
-  (pcase-let ((`(,window-id ,app-name ,window-title ,window-geometry)
-               (pcase emacs-everywhere--display-server
-                 (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
-                 (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
-                 (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server)))))
-    (make-emacs-everywhere-app
-     :id window-id
-     :class app-name
-     :title window-title
-     :geometry (list
-                (if (= (nth 0 window-geometry) (nth 2 window-geometry))
-                    (nth 0 window-geometry)
-                  (- (nth 0 window-geometry) (nth 2 window-geometry)))
-                (if (= (nth 1 window-geometry) (nth 3 window-geometry))
-                    (nth 1 window-geometry)
-                  (- (nth 1 window-geometry) (nth 3 window-geometry)))
-                (nth 4 window-geometry)
-                (nth 5 window-geometry)))))
+  "Return information on the active window, on Linux."
+  (pcase emacs-everywhere--display-server
+    (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
+    (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
+    (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server))))
 
 (defun emacs-everywhere--app-info-linux-x11 ()
   "Return information on the current active window, on a Linux X11 sessions."
@@ -502,7 +488,21 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
                            (cadr (assoc "Relative upper-left Y" info))
                            (cadr (assoc "Width" info))
                            (cadr (assoc "Height" info)))))))
-      (list window-id app-name window-title window-geometry))))
+      (setq window-geometry
+            (list
+             (if (= (nth 0 window-geometry) (nth 2 window-geometry))
+                 (nth 0 window-geometry)
+               (- (nth 0 window-geometry) (nth 2 window-geometry)))
+             (if (= (nth 1 window-geometry) (nth 3 window-geometry))
+                 (nth 1 window-geometry)
+               (- (nth 1 window-geometry) (nth 3 window-geometry)))
+             (nth 4 window-geometry)
+             (nth 5 window-geometry)))
+      (make-emacs-everywhere-app
+       :id window-id
+       :class app-name
+       :title window-title
+       :geometry window-geometry))))
 
 (defun emacs-everywhere--app-info-linux-kde ()
   "Return information on the current active window, on a Linux KDE sessions."
@@ -520,10 +520,13 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
              (mapcar #'string-to-number
                      (list (cadr (assoc "Position" geom))
                            (caddr (assoc "Position" geom))
-                           "0" "0"
                            (cadr (assoc "Geometry" geom))
                            (caddr (assoc "Geometry" geom)))))))
-      (list window-id app-name window-title window-geometry))))
+      (make-emacs-everywhere-app
+       :id window-id
+       :class app-name
+       :title window-title
+       :geometry window-geometry))))
 
 (defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
