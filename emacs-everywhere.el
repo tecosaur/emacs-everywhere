@@ -403,7 +403,8 @@ Never paste content when ABORT is non-nil."
         (let ((inhibit-message t)
               (require-final-newline nil)
               write-file-functions)
-          (write-file buffer-file-name)
+          (with-file-modes #o600
+            (write-file buffer-file-name))
           (apply #'call-process (car emacs-everywhere-copy-command)
                  nil nil nil
                  (mapcar (lambda (arg)
