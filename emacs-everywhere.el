@@ -123,7 +123,7 @@ When nil, nothing is executed, and pasting is not attempted."
     "Pull Request" "Issue" "Comparing .*\\.\\.\\.") ; Github
   "For use with `emacs-everywhere-markdown-p'.
 Patterns which are matched against the window title."
-  :type '(rep string)
+  :type '(repeat string)
   :group 'emacs-everywhere)
 
 (defcustom emacs-everywhere-markdown-apps
