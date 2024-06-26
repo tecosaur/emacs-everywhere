@@ -107,6 +107,7 @@ it worked can be a good idea."
     (`(windows . ,_) (list "powershell" "-NoProfile" "-command"
                            "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }"))
     (`(x11 . ,_) (list "xdotool" "windowactivate" "--sync" "%w"))
+    (`(wayland . sway) (list "swaymsg" "[con_id=%w]" "focus"))
     (`(wayland . KDE) (list "kdotool" "windowactivate" "%w"))) ; No --sync
   "Command to refocus the active window when emacs-everywhere was triggered.
 This is given as a list in the form (CMD ARGS...).
@@ -232,6 +233,7 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
     (`(quartz . ,_) #'emacs-everywhere--app-info-osx)
     (`(windows . ,_) #'emacs-everywhere--app-info-windows)
     (`(x11 . ,_) #'emacs-everywhere--app-info-linux-x11)
+    (`(wayland . sway) #'emacs-everywhere--app-info-linux-sway)
     (`(wayland . KDE) #'emacs-everywhere--app-info-linux-kde))
   "Function that asks the system for information on the current foreground app.
 On most systems, this should be set to a sensible default, but it
@@ -475,7 +477,40 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
   (pcase emacs-everywhere--display-server
     (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
     (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
+    (`(wayland . sway) (emacs-everywhere--app-info-linux-sway))
     (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server))))
+
+(declare-function json-read-from-string "json")
+
+(defun emacs-everywhere--app-info-linux-sway ()
+  "Return information on the current active window, on a Linux Sway session."
+  (cl-labels ((find-focused-node (node)
+                (or (and (assq 'type node)
+                         (eq 't (alist-get 'focused node))
+                         node)
+                    (cl-loop for child-node across (alist-get 'nodes node)
+                             thereis (find-focused-node child-node))
+                    (cl-loop for floating-node across (alist-get 'floating_nodes node)
+                             thereis (find-focused-node floating-node)))))
+    (require 'json)
+    (let* ((sway-tree-json (emacs-everywhere--call "swaymsg" "-t" "get_tree"))
+           (sway-tree (json-read-from-string sway-tree-json))
+           (focused-node (find-focused-node sway-tree))
+           (window-id (number-to-string (alist-get 'id focused-node)))
+           (app-name (or (alist-get 'app_id focused-node)
+                         (alist-get 'class (alist-get 'window_properties focused-node))))
+           (window-title (alist-get 'name focused-node))
+           (full-window-geometry (alist-get 'geometry focused-node))
+           (window-geometry (list
+                             (alist-get 'x full-window-geometry)
+                             (alist-get 'y full-window-geometry)
+                             (alist-get 'width full-window-geometry)
+                             (alist-get 'height full-window-geometry))))
+      (make-emacs-everywhere-app
+       :id window-id
+       :class app-name
+       :title window-title
+       :geometry window-geometry))))
 
 (defun emacs-everywhere--app-info-linux-x11 ()
   "Return information on the current active window, on a Linux X11 sessions."
