@@ -24,6 +24,7 @@
 
 (require 'cl-lib)
 (require 'server)
+(require 'anaphora)
 
 (defgroup emacs-everywhere ()
   "Customise group for Emacs-everywhere."
