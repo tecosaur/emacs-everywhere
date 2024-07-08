@@ -69,7 +69,10 @@
      (list "powershell" "-NoProfile" "-Command"
            "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
     ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
-    ('wayland (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
+    ('wayland (cond ((executable-find "dotool") (list "dotool"))
+                    ;; Note: for ydotool to work you need to have the ydotoold daemon running:
+                    ((executable-find "ydotool") (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
+                    ((executable-find "wtype") (list "wtype" "-M" "Shift" "-P" "Insert" "-m" "Shift" "-p" "Insert"))))
     ('unknown
      (list "notify-send"
            "No paste command defined for emacs-everywhere"
@@ -427,7 +430,9 @@ Never paste content when ABORT is non-nil."
                    emacs-everywhere-paste-command
                    (not abort))
           (apply #'call-process (car emacs-everywhere-paste-command)
-                 nil nil nil (cdr emacs-everywhere-paste-command)))))
+                 (if (cdr emacs-everywhere-paste-command) nil
+                   (make-temp-file nil nil nil "key shift+insert")) nil nil
+                   (cdr emacs-everywhere-paste-command)))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
     ;; (b/c `server-existing-buffer' is non-nil).
     (emacs-everywhere-mode -1)
