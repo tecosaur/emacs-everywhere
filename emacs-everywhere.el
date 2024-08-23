@@ -426,8 +426,9 @@ Never paste content when ABORT is non-nil."
         (when (and (frame-parameter nil 'emacs-everywhere-app)
                    emacs-everywhere-paste-command
                    (not abort))
-          (apply #'call-process (car emacs-everywhere-paste-command)
-                 (if (cdr emacs-everywhere-paste-command) nil (make-temp-file nil nil nil "key shift+insert")) nil nil (cdr emacs-everywhere-paste-command)))))
+		(if (cdr emacs-everywhere-paste-command) (apply #'call-process (car emacs-everywhere-paste-command)
+							  nil nil nil (cdr emacs-everywhere-paste-command))
+	    (apply #'shell-command-on-region "key shift+insert" nil "dotool" nil nil nil nil nil)))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
     ;; (b/c `server-existing-buffer' is non-nil).
     (emacs-everywhere-mode -1)
