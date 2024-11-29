@@ -427,9 +427,10 @@ Never paste content when ABORT is non-nil."
           (apply #'call-process (car emacs-everywhere-paste-command)
                  nil nil nil (cdr emacs-everywhere-paste-command)))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
-    ;; (b/c `server-existing-buffer' is non-nil).
-    (emacs-everywhere-mode -1)
-    (server-buffer-done (current-buffer))))
+    (set-buffer-modified-p nil)
+    (let ((kill-buffer-query-functions nil))
+      (emacs-everywhere-mode -1)
+      (server-buffer-done (current-buffer)))))
 
 (defun emacs-everywhere-abort ()
   "Abort current emacs-everywhere session."
