@@ -719,10 +719,32 @@ return windowTitle"))
   "Insert the last text selection into the buffer."
   (pcase system-type
     ('darwin (progn
-               (call-process "osascript" nil nil nil
-                             "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
-               (sleep-for emacs-everywhere-clipboard-sleep-delay) ; lets clipboard info propagate
-               (yank)))
+               ;; Try to get selected text directly via AppleScript
+               (let ((selection
+                      (with-temp-buffer
+                        (call-process "osascript" nil t nil
+                                    "-e" "tell application \"System Events\"
+                                           set frontApp to first application process whose frontmost is true
+                                           set frontAppName to name of frontApp
+                                         end tell
+                                         set theSelection to \"\"
+                                         tell application frontAppName
+                                           try
+                                             set theSelection to selection
+                                             if theSelection is not \"\" then
+                                               return theSelection
+                                             end if
+                                           end try
+                                         end tell")
+                        (buffer-string))))
+                 ;; If direct selection fails, fall back to clipboard
+                 (if (and selection (not (string-empty-p selection)))
+                     (insert selection)
+                   (progn
+                     (call-process "osascript" nil nil nil
+                                  "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
+                     (sleep-for emacs-everywhere-clipboard-sleep-delay)
+                     (yank))))))
     ((or 'ms-dos 'windows-nt 'cygwin)
      (emacs-everywhere-insert-selection--windows))
     (_ (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
