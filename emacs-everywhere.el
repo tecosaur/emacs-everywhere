@@ -771,7 +771,7 @@ return windowTitle"))
              (executable-find "pandoc"))
     (apply #'call-process-region
            (point-min) (point-max) "pandoc"
-           nil nil nil
+           t t t
            emacs-everywhere-pandoc-md-args)
     (deactivate-mark) (goto-char (point-max)))
   (cond ((bound-and-true-p evil-local-mode) (evil-insert-state))))
