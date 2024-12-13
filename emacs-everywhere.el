@@ -402,12 +402,25 @@ Never paste content when ABORT is non-nil."
       (setq abort t))
     (unless abort
       (run-hooks 'emacs-everywhere-final-hooks)
-      (gui-select-text (buffer-string))
-      (gui-backend-set-selection 'PRIMARY (buffer-string))
+      ;; First ensure text is in kill-ring and system clipboard
+      (let ((text (buffer-string)))
+        (kill-new text)
+        ;; Use macOS specific clipboard command
+        (when (eq system-type 'darwin)
+          (call-process "osascript" nil nil nil
+                       "-e" (format "set the clipboard to %S" text)))
+        ;; Also try GUI selection methods
+        (gui-select-text text)
+        (gui-backend-set-selection 'PRIMARY text))
+      ;; Extra clipboard handling if needed
       (when emacs-everywhere-copy-command ; handle clipboard finicklyness
         (let ((inhibit-message t)
               (require-final-newline nil)
               write-file-functions)
+          ;; Add this to your config to exclude tempf file from recent files
+          ;; (with-eval-after-load 'recentf
+          ;;   (dolist (pattern emacs-everywhere-file-patterns)
+          ;;     (add-to-list 'recentf-exclude pattern)))
           (with-file-modes #o600
             (write-file buffer-file-name))
           (apply #'call-process (car emacs-everywhere-copy-command)
@@ -429,14 +442,17 @@ Never paste content when ABORT is non-nil."
         (when (and (frame-parameter nil 'emacs-everywhere-app)
                    emacs-everywhere-paste-command
                    (not abort))
+          ;; Add small delay before paste
+          (sleep-for emacs-everywhere-clipboard-sleep-delay)
           (apply #'call-process (car emacs-everywhere-paste-command)
                  (if (cdr emacs-everywhere-paste-command) nil
                    (make-temp-file nil nil nil "key shift+insert")) nil nil
                    (cdr emacs-everywhere-paste-command)))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
-    ;; (b/c `server-existing-buffer' is non-nil).
-    (emacs-everywhere-mode -1)
-    (server-buffer-done (current-buffer))))
+    (set-buffer-modified-p nil)
+    (let ((kill-buffer-query-functions nil))
+      (emacs-everywhere-mode -1)
+      (server-buffer-done (current-buffer)))))
 
 (defun emacs-everywhere-abort ()
   "Abort current emacs-everywhere session."
