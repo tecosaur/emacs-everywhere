@@ -212,7 +212,10 @@ Set to nil to disable."
   :type '(repeat string)
   :group 'emacs-everywhere)
 
-(defcustom emacs-everywhere-clipboard-sleep-delay 0.01
+(defcustom emacs-everywhere-clipboard-sleep-delay
+  (cond
+   ((eq system-type 'darwin) 0.1) ; MacOS seems to need a little longer
+   (t 0.01))
   "Waiting period to wait to propagate clipboard actions."
   :type 'number
   :group 'emacs-everywhere)
