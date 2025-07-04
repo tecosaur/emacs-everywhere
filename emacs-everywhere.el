@@ -240,7 +240,8 @@ Make sure that it will be matched by `emacs-everywhere-file-patterns'."
     (`(windows . ,_) #'emacs-everywhere--app-info-windows)
     (`(x11 . ,_) #'emacs-everywhere--app-info-linux-x11)
     (`(wayland . sway) #'emacs-everywhere--app-info-linux-sway)
-    (`(wayland . KDE) #'emacs-everywhere--app-info-linux-kde))
+    (`(wayland . KDE) #'emacs-everywhere--app-info-linux-kde)
+    (`(wayland . Hyprland) #'emacs-everywhere--app-info-linux-hyprland))
   "Function that asks the system for information on the current foreground app.
 On most systems, this should be set to a sensible default, but it
 may not be set on less common configurations. If unset, a custom
@@ -535,6 +536,26 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
        :class app-name
        :title window-title
        :geometry window-geometry))))
+
+(defun emacs-everywhere--app-info-linux-hyprland ()
+  "Return information on the current active window, on a Linux Hyprland session."
+  (require 'json)
+  (let* ((json-array-type 'list)
+         (hyprland-active-window (emacs-everywhere--call "hyprctl" "-j" "activewindow"))
+         (active-window (json-read-from-string hyprland-active-window))
+         (window-id (number-to-string (alist-get 'pid active-window)))
+         (window-class  (alist-get 'initialClass active-window))
+         (window-title (alist-get 'initialTitle active-window))
+         (window-geometry (list
+                           (nth 0 (alist-get 'at active-window))
+                           (nth 1 (alist-get 'at active-window))
+                           (nth 0 (alist-get 'size active-window))
+                           (nth 1 (alist-get 'size active-window)))))
+    (make-emacs-everywhere-app
+     :id window-id
+     :class window-class
+     :title window-title
+     :geometry window-geometry)))
 
 (defun emacs-everywhere--app-info-linux-x11 ()
   "Return information on the current active window, on a Linux X11 sessions."
