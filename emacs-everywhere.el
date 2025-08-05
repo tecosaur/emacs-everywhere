@@ -70,8 +70,8 @@
            "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
     ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
     ('wayland (cond ((executable-find "dotool") (list "dotool"))
+		    ((executable-find "ydotool") (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
                     ;; Note: for ydotool to work you need to have the ydotoold daemon running:
-                    ((executable-find "ydotool") (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
                     ((executable-find "wtype") (list "wtype" "-M" "Shift" "-P" "Insert" "-m" "Shift" "-p" "Insert"))))
     ('unknown
      (list "notify-send"
@@ -215,6 +215,9 @@ Set to nil to disable."
 (defcustom emacs-everywhere-clipboard-sleep-delay
   (cond
    ((eq system-type 'darwin) 0.1) ; MacOS seems to need a little longer
+   ((equal (car emacs-everywhere-paste-command) "ydotool") 0.05)
+   ((and (equal (car emacs-everywhere-paste-command) "dotool")
+	 (string-empty-p (shell-command-to-string "pgrep -x dotoold"))) 0.05)
    (t 0.01))
   "Waiting period to wait to propagate clipboard actions."
   :type 'number
@@ -401,8 +404,8 @@ Must only be called within a emacs-everywhere buffer.
 Never paste content when ABORT is non-nil."
   (interactive)
   (when emacs-everywhere-mode
-    (when (equal emacs-everywhere--contents (buffer-string))
-      (setq abort t))
+    ;; (when (equal emacs-everywhere--contents (buffer-string))
+    ;;   (setq abort t))
     (unless abort
       (run-hooks 'emacs-everywhere-final-hooks)
       ;; First ensure text is in kill-ring and system clipboard
@@ -448,8 +451,9 @@ Never paste content when ABORT is non-nil."
           ;; Add small delay before paste
           (sleep-for emacs-everywhere-clipboard-sleep-delay)
           (apply #'call-process (car emacs-everywhere-paste-command)
-                 (if (cdr emacs-everywhere-paste-command) nil
-                   (make-temp-file nil nil nil "key shift+insert")) nil nil
+                 (if (equal (car emacs-everywhere-paste-command) "dotool")
+                   (make-temp-file nil nil nil "key shift+insert")) ;dotool only
+		 nil nil
                    (cdr emacs-everywhere-paste-command)))))
     ;; Clean up after ourselves in case the buffer survives `server-buffer-done'
     (set-buffer-modified-p nil)
@@ -879,6 +883,18 @@ Should end in a newline to avoid interfering with the buffer content."
                (propertize " ✓ installed" 'face 'success)
              (propertize " ✗ missing" 'face 'error))
            "\n"))))))
+
+(defun emacs-everywhere-dotoold-start ()
+  "Start (optional) dotoold daemon to improve performance if not already running."
+  (interactive)
+  (if (string-empty-p (shell-command-to-string "pgrep -x dotoold"))
+    (start-process "dotoold" "*dotoold*" "dotoold")))
+
+(defun emacs-everywhere-ydotoold-start ()
+  "Start ydotool daemon if not already running."
+  (interactive)
+  (if (string-empty-p (shell-command-to-string "pgrep -x ydotoold"))
+      (start-process "ydotoold" "*ydotoold*" "ydotoold")))
 
 (provide 'emacs-everywhere)
 ;;; emacs-everywhere.el ends here
