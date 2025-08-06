@@ -70,8 +70,8 @@
            "& {(New-Object -ComObject wscript.shell).SendKeys(\"^v\")}"))
     ('x11 (list "xdotool" "key" "--clearmodifiers" "Shift+Insert"))
     ('wayland (cond ((executable-find "dotool") (list "dotool"))
+		    ;; Note: for ydotool to work you need to have the ydotoold daemon running:
 		    ((executable-find "ydotool") (list "ydotool" "key" "42:1" "110:1" "42:0" "110:0"))
-                    ;; Note: for ydotool to work you need to have the ydotoold daemon running:
                     ((executable-find "wtype") (list "wtype" "-M" "Shift" "-P" "Insert" "-m" "Shift" "-p" "Insert"))))
     ('unknown
      (list "notify-send"
