@@ -657,6 +657,7 @@ tell frontAppProcess
     end if
 end tell
 return windowTitle"))
+        (make-directory default-directory t)
         (dolist (script `(("app-name" . ,app-name)
                           ("window-geometry" . ,window-geometry)
                           ("window-title" . ,window-title)))
