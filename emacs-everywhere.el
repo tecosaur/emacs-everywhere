@@ -601,7 +601,7 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
        :title window-title
        :geometry window-geometry))))
 
-(defvar emacs-everywhere--dir (file-name-directory load-file-name))
+(defvar emacs-everywhere--dir (file-name-directory (or load-file-name buffer-file-name)))
 
 (defun emacs-everywhere--app-info-osx ()
   "Return information on the active window, on osx."
