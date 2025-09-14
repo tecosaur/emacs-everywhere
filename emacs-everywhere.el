@@ -695,12 +695,17 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
        :title window-title
        :geometry window-geometry))))
 
-(defvar emacs-everywhere--dir (file-name-directory load-file-name))
+(defcustom emacs-everywhere-osx-dir
+  (file-name-directory (or load-file-name buffer-file-name))
+  "Where to find the compiled version of the macOS scripts.
+
+If the compiled scripts are not already in this directory, the package will add them: in this case, make sure the directory can be written to."
+  :type 'directory)
 
 (defun emacs-everywhere--app-info-osx ()
   "Return information on the active window, on osx."
   (emacs-everywhere--ensure-oscascript-compiled)
-  (let ((default-directory emacs-everywhere--dir))
+  (let ((default-directory emacs-everywhere-osx-dir))
     (let ((app-name (emacs-everywhere--call
                      "osascript" "app-name"))
           (window-title (emacs-everywhere--call
@@ -718,25 +723,25 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
 (defun emacs-everywhere--ensure-oscascript-compiled (&optional force)
   "Ensure that compiled oscascript files are present.
 Will always compile when FORCE is non-nil."
-  (unless (and (file-exists-p "app-name")
-               (file-exists-p "window-geometry")
-               (file-exists-p "window-title")
-               (not force))
-    (let ((default-directory emacs-everywhere--dir)
-          (app-name
-           "tell application \"System Events\"
+  (let ((default-directory emacs-everywhere-osx-dir))
+    (unless (and (file-exists-p "app-name")
+                 (file-exists-p "window-geometry")
+                 (file-exists-p "window-title")
+                 (not force))
+      (let ((app-name
+             "tell application \"System Events\"
     set frontAppName to name of first application process whose frontmost is true
 end tell
 return frontAppName")
-          (window-geometry
-           "tell application \"System Events\"
+            (window-geometry
+             "tell application \"System Events\"
      set frontWindow to front window of (first application process whose frontmost is true)
      set windowPosition to (get position of frontWindow)
      set windowSize to (get size of frontWindow)
 end tell
 return windowPosition & windowSize")
-          (window-title
-           "set windowTitle to \"\"
+            (window-title
+             "set windowTitle to \"\"
 tell application \"System Events\"
      set frontAppProcess to first application process whose frontmost is true
 end tell
@@ -746,12 +751,13 @@ tell frontAppProcess
     end if
 end tell
 return windowTitle"))
-      (dolist (script `(("app-name" . ,app-name)
-                        ("window-geometry" . ,window-geometry)
-                        ("window-title" . ,window-title)))
-        (write-region (cdr script) nil (concat (car script) ".applescript"))
-        (shell-command (format "osacompile -r scpt:128 -t osas -o %s %s"
-                               (car script) (concat (car script) ".applescript")))))))
+        (make-directory default-directory t)
+        (dolist (script `(("app-name" . ,app-name)
+                          ("window-geometry" . ,window-geometry)
+                          ("window-title" . ,window-title)))
+          (write-region (cdr script) nil (concat (car script) ".applescript"))
+          (shell-command (format "osacompile -r scpt:128 -t osas -o %s %s"
+                                 (car script) (concat (car script) ".applescript"))))))))
 
 (defun emacs-everywhere--app-info-windows ()
   "Return information on the active window, on Windows."
