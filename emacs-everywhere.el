@@ -62,6 +62,8 @@
 
 (defcustom emacs-everywhere-system-configs
   '((quartz
+     :clipboard-sleep-delay 0.1
+     :copy-command ("sh" "-c" "pbcopy < %f")
      :paste-command ("osascript" "-e" "tell application \"System Events\" to keystroke \"v\" using command down")
      :focus-command ("osascript" "-e" "tell application \"%w\" to activate")
      :info-function emacs-everywhere--app-info-osx)
@@ -216,11 +218,8 @@ Set to nil to disable."
   :type '(repeat string)
   :group 'emacs-everywhere)
 
-(defcustom emacs-everywhere-clipboard-sleep-delay
-  (cond
-   ((eq system-type 'darwin) 0.1) ; MacOS seems to need a little longer
-   (t 0.01))
-  "Waiting period to wait to propagate clipboard actions."
+(defcustom emacs-everywhere-clipboard-sleep-delay 0.01
+  "Waiting period to propagate clipboard actions before pasting."
   :type 'number
   :group 'emacs-everywhere)
 
@@ -350,8 +349,9 @@ When nil, nothing is executed, and pasting is not attempted.")
                    (format "The %s is not executable, as %s is not installed."
                            (symbol-name key) (car val))))))
               (when cmd
-                (set var cmd)))))))))
-
+                (set var cmd))))
+          (when-let ((delay (plist-get settings :clipboard-sleep-delay)))
+            (setq emacs-everywhere-clipboard-sleep-delay delay)))))))
 (defun emacs-everywhere--system-compositor ()
   "Return a cons cell (COMPOSITOR . DESKTOP) for the current system."
   (cond
@@ -513,11 +513,7 @@ Never paste content when ABORT is non-nil."
       ;; First ensure text is in kill-ring and system clipboard
       (let ((text (buffer-string)))
         (kill-new text)
-        ;; Use macOS specific clipboard command
-        (when (eq system-type 'darwin)
-          (call-process "osascript" nil nil nil
-                       "-e" (format "set the clipboard to %S" text)))
-        ;; Also try GUI selection methods
+        ;; GUI selection methods (fast, native)
         (gui-select-text text)
         (gui-backend-set-selection 'PRIMARY text))
       ;; Extra clipboard handling if needed
@@ -833,8 +829,8 @@ return windowTitle"))
 
 (defun emacs-everywhere-insert-selection ()
   "Insert the last text selection into the buffer."
-  (pcase system-type
-    ('darwin (progn
+  (pcase (car (emacs-everywhere--system-compositor))
+    ('quartz (progn
                ;; Try to get selected text directly via AppleScript
                (let ((selection
                       (with-temp-buffer
@@ -861,7 +857,7 @@ return windowTitle"))
                                   "-e" "tell application \"System Events\" to keystroke \"c\" using command down")
                      (sleep-for emacs-everywhere-clipboard-sleep-delay)
                      (yank))))))
-    ((or 'ms-dos 'windows-nt 'cygwin)
+    ('desktop-window-manager
      (emacs-everywhere-insert-selection--windows))
     (_ (when-let ((selection (gui-get-selection 'PRIMARY 'UTF8_STRING)))
          (gui-backend-set-selection 'PRIMARY "")
